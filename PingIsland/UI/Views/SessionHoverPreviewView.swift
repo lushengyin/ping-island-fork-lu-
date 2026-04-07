@@ -458,7 +458,7 @@ private struct HoverSessionBadges: View {
     var body: some View {
         HStack(spacing: 8) {
             previewBadge(
-                session.clientDisplayName,
+                HoverPreviewStyle.providerLabel(for: session),
                 tint: HoverPreviewStyle.providerBadgeFill(for: session),
                 foreground: .white.opacity(0.95)
             )
@@ -569,7 +569,7 @@ private struct HoverConversationLine: View {
 
 private enum HoverPreviewStyle {
     static func providerLabel(for session: SessionState) -> String {
-        session.providerDisplayName
+        session.messageBadgeDisplayName
     }
 
     static func assistantPrefixLabel(for session: SessionState) -> String {
@@ -577,6 +577,15 @@ private enum HoverPreviewStyle {
             return session.interactionDisplayName
         }
         return session.providerDisplayName
+    }
+
+    static func previewAssistantPrefix(for session: SessionState) -> String? {
+        let badgeLabel = providerLabel(for: session).trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixLabel = assistantPrefixLabel(for: session).trimmingCharacters(in: .whitespacesAndNewlines)
+        if !prefixLabel.isEmpty, prefixLabel.caseInsensitiveCompare(badgeLabel) == .orderedSame {
+            return nil
+        }
+        return prefixLabel.isEmpty ? nil : prefixLabel + "："
     }
 
     static func providerColor(for session: SessionState) -> Color {
@@ -632,7 +641,7 @@ private enum HoverPreviewLineBuilder {
             lines.append(
                 HoverPreviewLine(
                     id: "assistant",
-                    prefix: HoverPreviewStyle.assistantPrefixLabel(for: session) + "：",
+                    prefix: HoverPreviewStyle.previewAssistantPrefix(for: session),
                     prefixColor: HoverPreviewStyle.assistantPrefixColor(for: session),
                     text: assistantLine,
                     color: HoverPreviewStyle.assistantTextColor(for: session, compact: compact)

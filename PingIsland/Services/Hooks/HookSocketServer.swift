@@ -117,6 +117,7 @@ private extension HookEvent {
 private enum BridgeProvider: String, Codable, Sendable {
     case claude
     case codex
+    case copilot
 }
 
 private enum BridgeStatusKind: String, Codable, Sendable {
@@ -537,6 +538,12 @@ private extension BridgeEnvelope {
             } else {
                 kind = .codexApp
             }
+        case .copilot:
+            if let matchedProfile {
+                kind = matchedProfile.kind
+            } else {
+                kind = .custom
+            }
         }
 
         let resolvedBundleID: String?
@@ -582,6 +589,8 @@ private extension BridgeEnvelope {
             resolvedOrigin = explicitOrigin
         } else if provider == .codex {
             resolvedOrigin = matchedProfile?.defaultOrigin ?? (kind == .codexCLI ? "cli" : "desktop")
+        } else if provider == .copilot {
+            resolvedOrigin = matchedProfile?.defaultOrigin ?? "cli"
         } else {
             resolvedOrigin = nil
         }
@@ -624,6 +633,8 @@ private extension BridgeProvider {
             return .claude
         case .codex:
             return .codex
+        case .copilot:
+            return .copilot
         }
     }
 }

@@ -159,13 +159,11 @@ struct NotchView: View {
     }
 
     private var closedMascotStatus: MascotStatus {
-        if hasPendingPermission || hasHumanIntervention {
-            return .warning
-        }
-        if isProcessing {
-            return .working
-        }
-        return .idle
+        MascotStatus.closedNotchStatus(
+            representativePhase: representativeClosedSession?.phase,
+            hasPendingPermission: hasPendingPermission,
+            hasHumanIntervention: hasHumanIntervention
+        )
     }
 
     private func refreshLastVisibleMascotClient(from instances: [SessionState]) {
@@ -424,7 +422,7 @@ struct NotchView: View {
                     if viewModel.status != .opened {
                         ZStack {
                             if hasManualAttentionIndicator {
-                                BellIndicatorIcon(size: 14, color: closedIndicatorTone.emphasisColor)
+                                BellIndicatorIcon(size: 12, color: closedIndicatorTone.emphasisColor)
                             } else if activeSessionCount > 0 {
                                 SessionCountIndicator(count: activeSessionCount)
                             }

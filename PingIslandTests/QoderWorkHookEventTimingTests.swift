@@ -140,7 +140,7 @@ final class QoderWorkHookEventTimingTests: XCTestCase {
         XCTAssertEqual(answers?["style"] as? String, "简洁")
     }
 
-    func testQoderWorkDoesNotTriggerAutoAnswer() {
+    func testQoderWorkAutoAnswerUsesFirstOptionForEveryQuestion() {
         let event = HookEvent(
             sessionId: "qoderwork-session",
             cwd: "/tmp/project",
@@ -174,6 +174,13 @@ final class QoderWorkHookEventTimingTests: XCTestCase {
             message: nil
         )
 
-        XCTAssertNil(SessionMonitor.defaultQoderAutoAnswer(for: event))
+        let autoAnswer = SessionMonitor.defaultQoderAutoAnswer(for: event)
+
+        XCTAssertEqual(autoAnswer?.toolUseId, "call_auto")
+        XCTAssertEqual(autoAnswer?.answers["topic"], ["A 方案"])
+        let updatedInput = autoAnswer?.updatedInput
+        let answers = updatedInput?["answers"] as? [String: Any]
+        XCTAssertEqual(answers?["topic"] as? String, "A 方案")
+        XCTAssertEqual(answers?["先选一个主题"] as? String, "A 方案")
     }
 }

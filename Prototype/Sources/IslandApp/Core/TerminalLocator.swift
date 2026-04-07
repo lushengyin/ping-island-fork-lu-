@@ -33,6 +33,18 @@ actor AppleTerminalLocator: TerminalLocator {
             return "com.apple.Terminal"
         case "ghostty":
             return "com.mitchellh.ghostty"
+        case "alacritty":
+            return "io.alacritty"
+        case "kitty":
+            return "net.kovidgoyal.kitty"
+        case "hyper":
+            return "co.zeit.hyper"
+        case "warp", "warpterminal":
+            return "dev.warp.Warp-Stable"
+        case "wezterm", "wezterm-gui":
+            return "com.github.wez.wezterm"
+        case "codex":
+            return "com.openai.codex"
         default:
             return nil
         }

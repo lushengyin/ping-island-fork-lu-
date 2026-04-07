@@ -12,7 +12,8 @@ public enum HookPayloadMapper {
         environment: [String: String],
         stdinData: Data
     ) -> BridgeEnvelope {
-        let payload = BridgeCodec.readJSONObject(from: stdinData) ?? [:]
+        let rawPayload = BridgeCodec.readJSONObject(from: stdinData) ?? [:]
+        let payload = normalizedPayload(rawPayload, source: source)
         let eventType = detectEventType(arguments: arguments, payload: payload)
         let terminalContext = makeTerminalContext(environment: environment, payload: payload)
         let sessionKey = detectSessionKey(payload: payload, environment: environment, provider: source)
@@ -123,16 +124,28 @@ public enum HookPayloadMapper {
                 return String(data: (try? JSONSerialization.data(withJSONObject: ["answers": answers], options: [.sortedKeys])) ?? Data("{}".utf8), encoding: .utf8) ?? "{}"
             }
         case .copilot:
-            // GitHub Copilot uses similar response format to Codex
             switch decision {
             case .approve, .approveForSession:
-                return #"{"decision":"accept"}"#
+                return #"{"permissionDecision":"allow"}"#
             case .deny:
-                return #"{"decision":"decline"}"#
+                let reason = response.reason ?? "Denied from Island"
+                let escaped = reason.replacingOccurrences(of: "\"", with: "\\\"")
+                return #"{"permissionDecision":"deny","permissionDecisionReason":"\#(escaped)"}"#
             case .cancel:
-                return #"{"decision":"cancel"}"#
+                let reason = response.reason ?? "Denied from Island"
+                let escaped = reason.replacingOccurrences(of: "\"", with: "\\\"")
+                return #"{"permissionDecision":"deny","permissionDecisionReason":"\#(escaped)"}"#
             case .answer(let answers):
-                return String(data: (try? JSONSerialization.data(withJSONObject: ["answers": answers], options: [.sortedKeys])) ?? Data("{}".utf8), encoding: .utf8) ?? "{}"
+                let modifiedArgs = response.updatedInput?.mapValues(\.foundationObject) ?? ["answers": answers]
+                let payload: [String: Any] = [
+                    "permissionDecision": "allow",
+                    "modifiedArgs": modifiedArgs
+                ]
+                guard JSONSerialization.isValidJSONObject(payload),
+                      let data = try? JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]) else {
+                    return #"{"permissionDecision":"allow"}"#
+                }
+                return String(data: data, encoding: .utf8) ?? #"{"permissionDecision":"allow"}"#
             }
         }
     }
@@ -212,6 +225,9 @@ public enum HookPayloadMapper {
         if let text = payload["status"] as? String {
             return mapStatusString(text)
         }
+        if isGeminiHookClient(clientKind) {
+            return geminiStatus(eventType: eventType, payload: payload)
+        }
         if let intervention {
             switch intervention.kind {
             case .approval:
@@ -234,6 +250,9 @@ public enum HookPayloadMapper {
             return SessionStatus(kind: .runningTool)
         }
         if lowered.contains("posttool") {
+            if payload["error"] != nil {
+                return SessionStatus(kind: .error)
+            }
             return SessionStatus(kind: .active)
         }
         if lowered.contains("stop") || lowered.contains("end") {
@@ -254,6 +273,13 @@ public enum HookPayloadMapper {
         clientKind: String?,
         intervention: InterventionRequest?
     ) -> Bool {
+        if clientKind == "opencode" {
+            return false
+        }
+        if isGeminiHookClient(clientKind) {
+            return false
+        }
+
         // If we have an intervention, always expect a response
         if intervention != nil {
             return true
@@ -300,7 +326,8 @@ public enum HookPayloadMapper {
             payload["title"] as? String,
             payload["session_title"] as? String,
             payload["tool_name"] as? String,
-            payload["hook_event_name"] as? String
+            payload["hook_event_name"] as? String,
+            payload["event"] as? String
         ].compactMap { $0 }.first
     }
 
@@ -316,6 +343,7 @@ public enum HookPayloadMapper {
             payload["message"] as? String,
             payload["last_assistant_message"] as? String,
             payload["command"] as? String,
+            summarizeValue(payload["tool_result"]),
             summarizeValue(payload["tool_input"])
         ].compactMap { sanitizedDisplayText($0) }.first
     }
@@ -330,20 +358,7 @@ public enum HookPayloadMapper {
 
     private static func makeTerminalContext(environment: [String: String], payload: [String: Any]) -> TerminalContext {
         let terminalProgram = environment["TERM_PROGRAM"]
-        let normalizedTerminalProgram = terminalProgram?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        let inferredBundleID: String?
-        switch normalizedTerminalProgram {
-        case "iterm2", "iterm", "iterm.app":
-            inferredBundleID = "com.googlecode.iterm2"
-        case "apple_terminal", "terminal", "terminal.app":
-            inferredBundleID = "com.apple.Terminal"
-        case "ghostty":
-            inferredBundleID = "com.mitchellh.ghostty"
-        default:
-            inferredBundleID = nil
-        }
+        let inferredBundleID = inferredTerminalBundleID(for: terminalProgram)
 
         return TerminalContext(
             terminalProgram: terminalProgram,
@@ -359,6 +374,35 @@ public enum HookPayloadMapper {
         )
     }
 
+    private static func inferredTerminalBundleID(for program: String?) -> String? {
+        let normalizedProgram = program?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+
+        switch normalizedProgram {
+        case "iterm2", "iterm", "iterm.app":
+            return "com.googlecode.iterm2"
+        case "apple_terminal", "terminal", "terminal.app":
+            return "com.apple.Terminal"
+        case "ghostty":
+            return "com.mitchellh.ghostty"
+        case "alacritty":
+            return "io.alacritty"
+        case "kitty":
+            return "net.kovidgoyal.kitty"
+        case "hyper":
+            return "co.zeit.hyper"
+        case "warp", "warpterminal":
+            return "dev.warp.Warp-Stable"
+        case "wezterm", "wezterm-gui":
+            return "com.github.wez.wezterm"
+        case "codex":
+            return "com.openai.codex"
+        default:
+            return nil
+        }
+    }
+
     private static func detectIntervention(
         provider: AgentProvider,
         eventType: String,
@@ -366,6 +410,13 @@ public enum HookPayloadMapper {
         payload: [String: Any],
         clientKind: String?
     ) -> InterventionRequest? {
+        if clientKind == "opencode" {
+            return nil
+        }
+        if isGeminiHookClient(clientKind) {
+            return nil
+        }
+
         if clientKind == "qoderwork",
            eventType == "PostToolUse",
            questionToolNames.contains(normalizedToolName(from: payload) ?? ""),
@@ -410,7 +461,7 @@ public enum HookPayloadMapper {
             return InterventionRequest(
                 sessionID: sessionKey,
                 kind: .question,
-                title: provider == .claude ? "Claude needs input" : "Codex needs input",
+                title: "\(provider.displayName) needs input",
                 message: (questions.first?["question"] as? String)
                     ?? (questions.first?["title"] as? String)
                     ?? "Answer required",
@@ -452,7 +503,7 @@ public enum HookPayloadMapper {
         return InterventionRequest(
             sessionID: sessionKey,
             kind: .approval,
-            title: provider == .claude ? "Claude needs approval" : "Codex needs approval",
+            title: "\(provider.displayName) needs approval",
             message: message,
             options: [
                 InterventionOption(id: "approve", title: "Allow Once"),
@@ -469,7 +520,7 @@ public enum HookPayloadMapper {
            JSONSerialization.isValidJSONObject(toolInput),
            let data = try? JSONSerialization.data(withJSONObject: toolInput, options: [.sortedKeys]),
            let json = String(data: data, encoding: .utf8) {
-            metadata["tool_input_json"] = json
+            metadata["tool_input_json"] = json.replacingOccurrences(of: "\\/", with: "/")
         }
         for (key, value) in argumentMetadata(arguments: arguments) where metadata[key] == nil {
             metadata[key] = value
@@ -512,6 +563,54 @@ public enum HookPayloadMapper {
         return result
     }
 
+    private static func normalizedPayload(
+        _ payload: [String: Any],
+        source: AgentProvider
+    ) -> [String: Any] {
+        guard source == .copilot else { return payload }
+
+        var normalized = payload
+
+        if normalized["session_id"] == nil,
+           let sessionId = payload["sessionId"] as? String {
+            normalized["session_id"] = sessionId
+        }
+
+        if normalized["tool_name"] == nil,
+           let toolName = payload["toolName"] as? String {
+            normalized["tool_name"] = toolName
+        }
+
+        if normalized["tool_input"] == nil,
+           let toolArgs = decodedJSONObject(from: payload["toolArgs"]) {
+            normalized["tool_input"] = toolArgs
+        }
+
+        if normalized["prompt"] == nil {
+            normalized["prompt"] = payload["userPrompt"] ?? payload["initialPrompt"]
+        }
+
+        if normalized["message"] == nil {
+            normalized["message"] = firstNonEmptyString(
+                payload["message"],
+                payload["error"],
+                payload["source"]
+            )
+        }
+
+        if normalized["reason"] == nil,
+           let errorMessage = payload["error"] as? String {
+            normalized["reason"] = errorMessage
+        }
+
+        if normalized["tool_result"] == nil,
+           let toolResult = payload["toolResult"] {
+            normalized["tool_result"] = toolResult
+        }
+
+        return normalized
+    }
+
     private static func summarizeValue(_ value: Any?) -> String? {
         guard let value else { return nil }
         switch value {
@@ -526,7 +625,7 @@ public enum HookPayloadMapper {
             else {
                 return nil
             }
-            return string
+            return string.replacingOccurrences(of: "\\/", with: "/")
         case let object as [String: Any]:
             guard JSONSerialization.isValidJSONObject(object),
                   let data = try? JSONSerialization.data(withJSONObject: object, options: [.sortedKeys]),
@@ -534,16 +633,82 @@ public enum HookPayloadMapper {
             else {
                 return nil
             }
-            return string
+            return string.replacingOccurrences(of: "\\/", with: "/")
         default:
             return nil
         }
+    }
+
+    private static func decodedJSONObject(from rawValue: Any?) -> [String: Any]? {
+        guard let rawValue else { return nil }
+
+        if let object = rawValue as? [String: Any] {
+            return object
+        }
+
+        if let string = rawValue as? String,
+           let data = string.data(using: .utf8),
+           let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            return json
+        }
+
+        return nil
+    }
+
+    private static func firstNonEmptyString(_ values: Any?...) -> String? {
+        values.compactMap { summarizeValue($0) }.first
     }
 
     private static func normalizedClientKind(from metadata: [String: String]) -> String? {
         metadata["client_kind"]?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    private static func isGeminiHookClient(_ clientKind: String?) -> Bool {
+        guard let clientKind else { return false }
+        switch clientKind {
+        case "gemini", "gemini-cli", "gemini_cli", "gemini cli":
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func geminiStatus(
+        eventType: String,
+        payload: [String: Any]
+    ) -> SessionStatus {
+        switch eventType.lowercased() {
+        case "beforetool":
+            return SessionStatus(kind: .runningTool)
+        case "aftertool":
+            if let toolResponse = payload["tool_response"] as? [String: Any],
+               toolResponse["error"] != nil {
+                return SessionStatus(kind: .error)
+            }
+            return SessionStatus(kind: .active)
+        case "beforeagent", "beforetoolselection":
+            return SessionStatus(kind: .thinking)
+        case "afteragent", "aftermodel":
+            return SessionStatus(kind: .waitingForInput)
+        case "sessionstart":
+            return SessionStatus(kind: .waitingForInput)
+        case "sessionend":
+            return SessionStatus(kind: .completed)
+        case "notification":
+            let notificationType = (payload["notification_type"] as? String)?
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .lowercased()
+            if notificationType == "error" {
+                return SessionStatus(kind: .error)
+            }
+            return SessionStatus(kind: .notification)
+        case "precompress":
+            return SessionStatus(kind: .compacting)
+        default:
+            return SessionStatus(kind: .active)
+        }
     }
 
     private static func questionPayloads(from payload: [String: Any]) -> [[String: Any]]? {
@@ -739,5 +904,18 @@ public enum HookPayloadMapper {
             .trimmingCharacters(in: .whitespacesAndNewlines)
 
         return cleaned.isEmpty ? nil : cleaned
+    }
+}
+
+private extension AgentProvider {
+    var displayName: String {
+        switch self {
+        case .claude:
+            return "Claude"
+        case .codex:
+            return "Codex"
+        case .copilot:
+            return "Copilot"
+        }
     }
 }

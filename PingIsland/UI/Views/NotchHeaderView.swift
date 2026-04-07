@@ -235,21 +235,21 @@ struct NotchPetIcon: View {
 
     @ViewBuilder
     private func sleepOverlay(palette: NotchPetPalette) -> some View {
-        let primaryProgress = sleepBubbleProgress(offset: 0)
-        let secondaryProgress = sleepBubbleProgress(offset: 4)
-
         ZStack(alignment: .topTrailing) {
-            sleepBubble(progress: secondaryProgress, fontSize: size * 0.34, palette: palette)
-                .offset(
-                    x: size * (0.10 + secondaryProgress * 0.16),
-                    y: -size * (0.12 + secondaryProgress * 0.18)
-                )
+            ForEach(sleepBubbleConfigs.indices, id: \.self) { index in
+                let bubble = sleepBubbleConfigs[index]
+                let progress = sleepBubbleProgress(offset: bubble.phaseOffset)
 
-            sleepBubble(progress: primaryProgress, fontSize: size * 0.42, palette: palette)
-                .offset(
-                    x: size * (0.20 + primaryProgress * 0.22),
-                    y: -size * (0.28 + primaryProgress * 0.26)
+                sleepBubble(
+                    progress: progress,
+                    fontSize: size * bubble.fontScale,
+                    palette: palette
                 )
+                .offset(
+                    x: size * (bubble.baseX + progress * bubble.travelX),
+                    y: -size * (bubble.baseY + progress * bubble.travelY)
+                )
+            }
         }
         .frame(width: size * style.aspectRatio, height: size, alignment: .topTrailing)
         .allowsHitTesting(false)
@@ -272,6 +272,23 @@ struct NotchPetIcon: View {
         let index = (phase + offset) % cycleLength
         return CGFloat(index) / CGFloat(cycleLength - 1)
     }
+
+    private var sleepBubbleConfigs: [SleepBubbleConfig] {
+        [
+            SleepBubbleConfig(phaseOffset: 0, fontScale: 0.24, baseX: -0.04, baseY: 0.08, travelX: 0.10, travelY: 0.10),
+            SleepBubbleConfig(phaseOffset: 2, fontScale: 0.31, baseX: 0.04, baseY: 0.18, travelX: 0.14, travelY: 0.18),
+            SleepBubbleConfig(phaseOffset: 5, fontScale: 0.39, baseX: 0.18, baseY: 0.32, travelX: 0.18, travelY: 0.24)
+        ]
+    }
+}
+
+private struct SleepBubbleConfig {
+    let phaseOffset: Int
+    let fontScale: CGFloat
+    let baseX: CGFloat
+    let baseY: CGFloat
+    let travelX: CGFloat
+    let travelY: CGFloat
 }
 
 private extension NotchPetStyle {

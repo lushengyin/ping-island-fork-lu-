@@ -18,6 +18,23 @@ import uuid
 SOCKET_PATH = os.environ.get("ISLAND_SOCKET_PATH", "/tmp/island.sock")
 TIMEOUT_SECONDS = 300
 FOUNDATION_REFERENCE_UNIX = 978307200
+TERMINAL_BUNDLE_IDS_BY_PROGRAM = {
+    "iterm2": "com.googlecode.iterm2",
+    "iterm": "com.googlecode.iterm2",
+    "iterm.app": "com.googlecode.iterm2",
+    "apple_terminal": "com.apple.Terminal",
+    "terminal": "com.apple.Terminal",
+    "terminal.app": "com.apple.Terminal",
+    "ghostty": "com.mitchellh.ghostty",
+    "alacritty": "io.alacritty",
+    "kitty": "net.kovidgoyal.kitty",
+    "hyper": "co.zeit.hyper",
+    "warp": "dev.warp.Warp-Stable",
+    "warpterminal": "dev.warp.Warp-Stable",
+    "wezterm": "com.github.wez.wezterm",
+    "wezterm-gui": "com.github.wez.wezterm",
+    "codex": "com.openai.codex",
+}
 
 
 def get_tty():
@@ -139,13 +156,8 @@ def build_terminal_context(cwd, tty):
     ide_bundle_id = None
 
     if not bundle_id:
-        if normalized_program in {"iterm2", "iterm", "iterm.app"}:
-            bundle_id = "com.googlecode.iterm2"
-        elif normalized_program in {"apple_terminal", "terminal", "terminal.app"}:
-            bundle_id = "com.apple.Terminal"
-        elif normalized_program == "ghostty":
-            bundle_id = "com.mitchellh.ghostty"
-        else:
+        bundle_id = TERMINAL_BUNDLE_IDS_BY_PROGRAM.get(normalized_program)
+        if not bundle_id:
             ide_name, ide_bundle_id = detect_ide_context(env)
             bundle_id = ide_bundle_id
     else:

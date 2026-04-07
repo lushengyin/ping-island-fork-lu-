@@ -9,6 +9,37 @@ import Foundation
 
 /// Registry of known terminal application names and bundle identifiers
 struct TerminalAppRegistry: Sendable {
+    private nonisolated static let terminalDisplayNamesByBundleIdentifier: [String: String] = [
+        "com.apple.terminal": "Terminal",
+        "com.googlecode.iterm2": "iTerm2",
+        "com.openai.codex": "Codex",
+        "com.mitchellh.ghostty": "Ghostty",
+        "io.alacritty": "Alacritty",
+        "org.alacritty": "Alacritty",
+        "net.kovidgoyal.kitty": "kitty",
+        "co.zeit.hyper": "Hyper",
+        "dev.warp.warp-stable": "Warp",
+        "com.github.wez.wezterm": "WezTerm"
+    ]
+
+    private nonisolated static let terminalBundleIdentifiersByProgram: [String: String] = [
+        "iterm2": "com.googlecode.iterm2",
+        "iterm": "com.googlecode.iterm2",
+        "iterm.app": "com.googlecode.iterm2",
+        "apple_terminal": "com.apple.Terminal",
+        "terminal": "com.apple.Terminal",
+        "terminal.app": "com.apple.Terminal",
+        "ghostty": "com.mitchellh.ghostty",
+        "alacritty": "io.alacritty",
+        "kitty": "net.kovidgoyal.kitty",
+        "hyper": "co.zeit.hyper",
+        "warp": "dev.warp.Warp-Stable",
+        "warpterminal": "dev.warp.Warp-Stable",
+        "wezterm": "com.github.wez.wezterm",
+        "wezterm-gui": "com.github.wez.wezterm",
+        "codex": "com.openai.codex"
+    ]
+
     nonisolated static let ideBundleIdentifiers: Set<String> = [
         "com.microsoft.VSCode",
         "com.microsoft.VSCodeInsiders",
@@ -108,6 +139,43 @@ struct TerminalAppRegistry: Sendable {
     /// Check if a bundle identifier is a known terminal
     nonisolated static func isTerminalBundle(_ bundleId: String) -> Bool {
         bundleIdentifiers.contains(bundleId)
+    }
+
+    nonisolated static func inferredBundleIdentifier(forTerminalProgram program: String?) -> String? {
+        let normalizedProgram = program?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        guard let normalizedProgram, !normalizedProgram.isEmpty else {
+            return nil
+        }
+        return terminalBundleIdentifiersByProgram[normalizedProgram]
+    }
+
+    nonisolated static func canonicalDisplayName(
+        bundleIdentifier: String?,
+        program: String?,
+        fallbackName: String? = nil
+    ) -> String? {
+        let normalizedBundleIdentifier = bundleIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        if let normalizedBundleIdentifier,
+           let displayName = terminalDisplayNamesByBundleIdentifier[normalizedBundleIdentifier] {
+            return displayName
+        }
+
+        if let inferredBundleIdentifier = inferredBundleIdentifier(forTerminalProgram: program)?
+            .lowercased(),
+           let displayName = terminalDisplayNamesByBundleIdentifier[inferredBundleIdentifier] {
+            return displayName
+        }
+
+        guard let fallbackName = fallbackName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !fallbackName.isEmpty,
+              isTerminal(fallbackName) else {
+            return nil
+        }
+        return fallbackName
     }
 
     nonisolated static func isIDEBundle(_ bundleId: String) -> Bool {

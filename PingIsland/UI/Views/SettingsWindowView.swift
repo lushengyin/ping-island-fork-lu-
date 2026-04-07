@@ -78,10 +78,13 @@ final class SettingsPanelViewModel: ObservableObject {
     private var hookFeedbackClearTasks: [String: Task<Void, Never>] = [:]
 
     var visibleHookProfiles: [ManagedHookClientProfile] {
-        ClientProfileRegistry.managedHookProfiles.filter { profile in
+        let profiles = ClientProfileRegistry.managedHookProfiles.filter { profile in
             profile.alwaysVisibleInSettings
                 || ClientAppLocator.isInstalled(bundleIdentifiers: profile.localAppBundleIdentifiers)
         }
+
+        return profiles.filter { $0.id != "gemini-hooks" }
+            + profiles.filter { $0.id == "gemini-hooks" }
     }
 
     var visibleIDEExtensionProfiles: [ManagedIDEExtensionProfile] {
@@ -164,6 +167,14 @@ final class SettingsPanelViewModel: ObservableObject {
     func uninstallHooks(for profile: ManagedHookClientProfile) {
         HookInstaller.uninstall(profile)
         refreshHookInstallationStates()
+    }
+
+    func openHookConfigurationDirectory(for profile: ManagedHookClientProfile) {
+        guard let directoryURL = hookConfigurationDirectoryURL(for: profile) else {
+            return
+        }
+
+        NSWorkspace.shared.open(directoryURL)
     }
 
     func installIDEExtension(for profile: ManagedIDEExtensionProfile) {
@@ -253,6 +264,22 @@ final class SettingsPanelViewModel: ObservableObject {
         ideExtensionInstallationStates = ClientProfileRegistry.ideExtensionProfiles.reduce(into: [:]) { result, profile in
             result[profile.id] = IDEExtensionInstaller.isInstalled(profile)
         }
+    }
+
+    private func hookConfigurationDirectoryURL(for profile: ManagedHookClientProfile) -> URL? {
+        let fileManager = FileManager.default
+
+        if let existingConfiguration = profile.configurationURLs.first(where: { fileManager.fileExists(atPath: $0.path) }) {
+            return existingConfiguration.deletingLastPathComponent()
+        }
+
+        if let existingDirectory = profile.configurationURLs
+            .map({ $0.deletingLastPathComponent() })
+            .first(where: { fileManager.fileExists(atPath: $0.path) }) {
+            return existingDirectory
+        }
+
+        return profile.primaryConfigurationURL.deletingLastPathComponent()
     }
 }
 
@@ -366,7 +393,7 @@ private struct SettingsPanelContentView: View {
                 pendingHookReinstallProfile = nil
             }
         } message: { profile in
-            Text("这会重新写入 \(profile.title) 的 Island hooks 配置，并保留其他非 Island hooks。")
+            Text(profile.reinstallDescription)
         }
     }
 
@@ -772,7 +799,7 @@ private struct SettingsPanelContentView: View {
 
                 SettingsInfoLine(
                     title: "当前策略",
-                    subtitle: "Claude Code、Codex、Cursor、Qoder、CodeBuddy、Trae 等客户端会显示各自独立的宠物形象与动作，并支持逐客户端改成别的宠物。"
+                    subtitle: "Claude Code、Codex、Gemini CLI、OpenCode、Cursor、Qoder、CodeBuddy、Trae 等客户端会显示各自独立的宠物形象与动作，并支持逐客户端改成别的宠物。"
                 ) {
                     Text(settings.customizedMascotClientCount == 0 ? "自动" : "已自定义 \(settings.customizedMascotClientCount)")
                         .font(.system(size: 12, weight: .semibold))
@@ -821,6 +848,34 @@ private struct SettingsPanelContentView: View {
                             event: event,
                             isEnabled: soundEnabledBinding(for: event),
                             selectedSound: soundBinding(for: event)
+                        ) {
+                            AppSettings.playSound(for: event)
+                        }
+                    }
+                }
+            } else if settings.soundThemeMode == .island8Bit {
+                SettingsSectionCard(title: "客户端启动音") {
+                    SettingsActionLine(
+                        title: "固定启动音",
+                        subtitle: "使用内置 8-bit 启动旋律。应用启动时会自动播放，也可以在这里试听。"
+                    ) {
+                        AppSettings.playClientStartupSound()
+                    } accessory: {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 14, weight: .semibold))
+                            .foregroundColor(.white.opacity(0.72))
+                    }
+                }
+
+                SettingsSectionCard(title: "固定映射") {
+                    ForEach(NotificationEvent.allCases) { event in
+                        BundledThemeEventLine(
+                            event: event,
+                            soundLabel: event.island8BitSound.label,
+                            isEnabled: Binding(
+                                get: { AppSettings.isSoundEnabled(for: event) },
+                                set: { AppSettings.setSoundEnabled($0, for: event) }
+                            )
                         ) {
                             AppSettings.playSound(for: event)
                         }
@@ -879,6 +934,9 @@ private struct SettingsPanelContentView: View {
                             isReinstalling: viewModel.isReinstallingHooks(for: profile),
                             reinstallFeedback: viewModel.hookReinstallFeedback(for: profile),
                             installAction: { viewModel.installHooks(for: profile) },
+                            openConfigurationDirectoryAction: {
+                                viewModel.openHookConfigurationDirectory(for: profile)
+                            },
                             reinstallAction: { pendingHookReinstallProfile = profile },
                             uninstallAction: { viewModel.uninstallHooks(for: profile) }
                         )
@@ -1378,6 +1436,7 @@ private struct HookManagementLine: View {
     let isReinstalling: Bool
     let reinstallFeedback: SettingsPanelViewModel.HookReinstallFeedback?
     let installAction: () -> Void
+    let openConfigurationDirectoryAction: () -> Void
     let reinstallAction: () -> Void
     let uninstallAction: () -> Void
 
@@ -1416,6 +1475,12 @@ private struct HookManagementLine: View {
 
             HStack(spacing: 10) {
                 if isInstalled {
+                    HookManagementButton(
+                        title: "打开配置目录",
+                        tint: TerminalColors.blue,
+                        isDisabled: isReinstalling,
+                        action: openConfigurationDirectoryAction
+                    )
                     HookManagementButton(
                         title: isReinstalling ? "重新安装中..." : "重新安装",
                         tint: tint,
@@ -2309,6 +2374,59 @@ private struct SoundPackEventLine: View {
                 .layoutPriority(1)
 
             Text(categorySummary)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundColor(.white.opacity(0.42))
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+    }
+}
+
+private struct BundledThemeEventLine: View {
+    let event: NotificationEvent
+    let soundLabel: String
+    @Binding var isEnabled: Bool
+    let preview: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .center, spacing: 16) {
+                Text(event.title)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .layoutPriority(1)
+
+                Spacer(minLength: 12)
+
+                HStack(spacing: 8) {
+                    Toggle("", isOn: $isEnabled)
+                        .labelsHidden()
+                        .settingsCompactSwitch()
+
+                    Button(action: preview) {
+                        Image(systemName: "play.fill")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(.white.opacity(isEnabled ? 0.82 : 0.4))
+                            .frame(width: 26, height: 26)
+                            .background(
+                                Circle()
+                                    .fill(Color.white.opacity(isEnabled ? 0.08 : 0.03))
+                            )
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!isEnabled)
+                }
+            }
+
+            Text(event.subtitle)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundColor(.white.opacity(0.58))
+                .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
+
+            Text("固定音效：\(soundLabel)")
                 .font(.system(size: 12, weight: .semibold, design: .monospaced))
                 .foregroundColor(.white.opacity(0.42))
         }

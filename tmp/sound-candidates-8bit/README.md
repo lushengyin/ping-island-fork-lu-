@@ -44,6 +44,10 @@ Your current favorites are copied into `picked-so-far/`.
 
 If you want the fastest review pass, listen to the files in `shortlist/` first.
 
+If you only want a game-start / startup sound, listen to `startup-shortlist/` first.
+
+If you want a longer startup sound, listen to `long-startup-shortlist/`.
+
 The shortlist is grouped by the five app events we discussed:
 
 - `processing_started`
@@ -101,3 +105,31 @@ Once you pick 5 files, I can:
 2. Trim loudness and leading/trailing silence.
 3. Rename them to the app's final resource names.
 4. Wire them into the built-in sound picker.
+
+## Startup Shortlist
+
+The current startup-specific shortlist is in `startup-shortlist/`.
+
+- `startup__stumpystrust__on.ogg`
+  - Best current candidate for a clean boot / begin action.
+- `startup__basto__stair_up.ogg`
+  - More retro-console and game-like.
+- `startup__joth__menu_move.mp3`
+  - Short and snappy if you want something more neutral.
+
+## Long Startup Shortlist
+
+The current longer startup shortlist is in `long-startup-shortlist/`.
+
+Strictly inside the `2-3s` range, the best current matches are:
+
+- `long_startup__retrosynth__synth_misc_16.ogg`
+- `long_startup__basto__secret.ogg`
+
+Slightly above `3s`, but still worth a listen for startup use:
+
+- `long_startup__web__winfretless.ogg`
+- `long_startup__web__power_up_v1.ogg`
+- `long_startup__web__power_up_v2.ogg`
+- `long_startup__web__power_up_v3.ogg`
+- `long_startup__web__3xup.mp3`

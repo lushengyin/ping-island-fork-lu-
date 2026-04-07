@@ -1,70 +1,111 @@
-<div align="center">
-  <img src="PingIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" alt="Logo" width="100" height="100">
-  <h3 align="center">Ping Island</h3>
-  <p align="center">
-    A macOS menu bar app that brings Dynamic Island-style notifications to Claude Code CLI sessions.
-    <br />
-    <br />
-    <a href="https://github.com/farouqaldori/ping-island/releases/latest" target="_blank" rel="noopener noreferrer">
-      <img src="https://img.shields.io/github/v/release/farouqaldori/ping-island?style=rounded&color=white&labelColor=000000&label=release" alt="Release Version" />
-    </a>
-    <a href="#" target="_blank" rel="noopener noreferrer">
-      <img alt="GitHub Downloads" src="https://img.shields.io/github/downloads/farouqaldori/ping-island/total?style=rounded&color=white&labelColor=000000">
-    </a>
-  </p>
-</div>
+<h1 align="center">
+  <img src="PingIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" width="64" height="64" alt="Ping Island logo" valign="middle">&nbsp;
+  Ping Island
+</h1>
+<p align="center">
+  <b>Dynamic Island-style AI coding session monitor for the macOS menu bar</b><br>
+  <a href="#installation">Install</a> •
+  <a href="#features">Features</a> •
+  <a href="#supported-tools">Supported Tools</a> •
+  <a href="#build-from-source">Build</a><br>
+  English | <a href="README.zh-CN.md">简体中文</a>
+</p>
+
+---
+
+<p align="center">
+  <img src="docs/images/notch-panel.png" width="960" alt="Ping Island preview">
+</p>
+
+## What is Ping Island?
+
+Ping Island is a macOS menu bar app that expands into a Dynamic Island-style surface when your coding agents need attention. It listens to Claude-style hooks, Codex hooks, Gemini CLI hooks, the Codex app-server, OpenCode plugins, and compatible IDE integrations so approvals, input requests, completions, and session summaries show up without babysitting terminal tabs.
+
+The app is built around a simple runtime flow:
+
+```text
+Hook / app-server event
+  -> monitor and service layers
+    -> SessionStore
+      -> SessionMonitor + NotchViewModel
+        -> notch UI, session list, hover preview, completion notifications
+```
 
 ## Features
 
-- **Notch UI** — Animated overlay that expands from the MacBook notch
-- **Live Session Monitoring** — Track multiple Claude Code sessions in real-time
-- **Permission Approvals** — Approve or deny tool executions directly from the notch
-- **Chat History** — View full conversation history with markdown rendering
-- **Hook Management** — Install or reinstall hooks for Claude Code, Codex, and compatible clients from settings
-- **IDE Terminal Jump** — Optional VS Code-compatible extension lets Ping Island route to the matching project window, then jump to the right terminal tab or session in Cursor, VS Code, CodeBuddy, and Qoder
-- **Auto Updates** — Sparkle-powered background update checks with in-app markdown release notes
+- **Notch-inspired menu bar UI** - compact by default, expands when a session needs attention, and works on notch Macs plus external displays.
+- **Cross-client session monitoring** - tracks Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Qoder, CodeBuddy, Trae, Copilot, and compatible hook-driven sessions.
+- **Approve, deny, and answer in place** - handle tool approvals and user-input prompts directly from the notch surface.
+- **Terminal and IDE jump** - route back to the matching iTerm2, Ghostty, Terminal.app, tmux pane, or VS Code-compatible IDE window when possible.
+- **Managed integrations** - install or repair Claude, Codex, Gemini CLI, OpenCode, Qoder, CodeBuddy, Copilot, and compatible hook/plugin integrations from Settings, including GitHub-style `.github/hooks/*.json` templates for Copilot.
+- **Codex app coverage** - supports Codex CLI hooks plus live thread sync from the Codex app-server, with rollout parsing fallback for session context.
+- **Client mascot system** - every client family gets its own animated mascot, with per-client overrides and idle / working / warning states.
+- **Sound packs and event audio** - configure built-in sounds or import custom packs for start, attention, completion, failure, and limit events.
+- **Sparkle updates and markdown release notes** - supports in-app update checks and version notes sourced from the release pipeline.
+- **Diagnostics export** - bundle recent logs and config into a zip when you need to debug a broken integration.
 
-## Requirements
+<a id="supported-tools"></a>
+## Supported Tools
 
-- macOS 15.6+
-- Claude Code CLI
+| | Tool | Ingress | Jump | Coverage |
+|:---:|------|---------|------|----------|
+| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | Claude Code | Claude hooks | Terminal, tmux, IDE-hosted terminal | approvals, questions, compacting, completion |
+| <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | Codex App + Codex CLI | Codex app-server, hooks, rollout parsing fallback | Codex app, terminal | approvals, input requests, thread sync |
+| <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="28" alt="Gemini CLI logo"> | Gemini CLI | Gemini CLI hooks (`~/.gemini/settings.json`) | Compatible terminal host | session lifecycle, tool activity, notifications, compaction |
+| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | OpenCode | Managed plugin file | OpenCode app, terminal | forwarded plugin events into the same Island surface |
+| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | Cursor | Claude-compatible hooks + optional IDE extension | Project window + matching terminal | IDE routing and terminal focus |
+| <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | Qoder family | Qoder, QoderWork, Qoder CLI, JetBrains-compatible paths | Qoder / QoderWork window, terminal | session jump, approvals, reminders |
+| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | CodeBuddy | Hook integration + optional IDE extension | App window + terminal | tracked Claude-family sessions |
+| <img src="docs/images/mascots/trae.gif" width="28" alt="Trae mascot"> | Trae | Compatible Claude hooks | Hosted terminal / IDE | surfaced as Claude-family sessions |
+| <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | GitHub Copilot | GitHub Copilot hooks (`.github/hooks/*.json`) | Compatible terminal host | Copilot CLI / agent hook events |
 
-## Install
+Ping Island also ships VS Code-compatible focus extensions for VS Code, Cursor, CodeBuddy, Qoder, and QoderWork. `QoderWork` remains hook-first and is only treated as an IDE extension host when that environment is actually available.
 
-Download the latest release or build from source:
+<a id="installation"></a>
+## Installation
+
+### Download a Release
+
+1. Go to [Releases](https://github.com/erha19/ping-island/releases).
+2. Download the latest DMG or zip package.
+3. Move `Ping Island.app` into your Applications folder.
+4. Launch the app, then open **Settings -> Integration** to install the integrations you want.
+
+> On first launch, macOS may ask you to confirm the app or grant Accessibility / Apple Events permissions for focus features.
+
+<a id="build-from-source"></a>
+### Build from Source
+
+Requires macOS 14+ and an Xcode toolchain that can build the Xcode project and the Swift 6.1 `Prototype` package tests.
 
 ```bash
+git clone https://github.com/erha19/ping-island.git
+cd ping-island
+
+# Debug build
+xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug build
+
+# Release build
 xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Release build
 ```
 
-To create an unsigned distributable package for internal sharing or manual install testing:
+To create a locally shareable unsigned package:
 
 ```bash
 ./scripts/package-unsigned.sh
 ```
 
-## Auto Update Setup
-
-Sparkle runtime configuration is loaded from `Config/App.xcconfig`, which optionally includes a gitignored local override file.
-
-1. Copy `Config/LocalSecrets.example.xcconfig` to `Config/LocalSecrets.xcconfig`
-2. Set `SPARKLE_APPCAST_URL`
-3. Set `SPARKLE_PUBLIC_ED_KEY`
-4. Create version notes in `releases/notes/<version>.md` before running `./scripts/create-release.sh`
-
-Detailed release steps: [docs/sparkle-release.md](docs/sparkle-release.md)
-
-Release notes live in [`releases/notes/`](releases/notes/) with one Markdown file per version.
+For the full notarized release flow and Sparkle appcast setup, see [docs/sparkle-release.md](docs/sparkle-release.md).
 
 ## Testing
 
-Prototype hosts the repo's fast-running unit and e2e test harnesses for session ingestion, hook mapping, socket transport, and the `IslandBridge` executable path.
+The fastest full-repo regression path is:
 
 ```bash
 ./scripts/test.sh
 ```
 
-That script runs the full verified regression flow for this repo:
+That covers:
 
 ```bash
 swift test --package-path Prototype
@@ -72,46 +113,60 @@ xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug
 xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug CODE_SIGN_IDENTITY=- test
 ```
 
-The Xcode project also ships app-level unit and UI test targets if you want to run slices manually:
+Useful targeted slices:
 
 ```bash
+swift test --package-path Prototype --filter IslandBridgeE2ETests
 xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug CODE_SIGNING_ALLOWED=NO test -only-testing:PingIslandTests
 xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug CODE_SIGN_IDENTITY=- test -only-testing:PingIslandUITests
 ```
 
-On macOS, the UI test runner must pass local code-signing policy before it will leave its initial suspended state. If `PingIslandUITests-Runner` is blocked by `amfid` or `AppleSystemPolicy`, run the UI tests from Xcode with a valid local signing identity configured for the machine.
+If `PingIslandUITests-Runner` stays suspended on macOS, run the UI tests from Xcode with a valid local signing identity and check `amfid` / `AppleSystemPolicy` logs before treating it as an app regression.
 
-## CI
+## Settings
 
-Pull requests run GitHub Actions validation automatically through [`.github/workflows/pr-checks.yml`](.github/workflows/pr-checks.yml).
+Ping Island currently ships a 6-category settings panel:
 
-The workflow stays on `macos-26`, while the `Prototype` package manifest is kept compatible with GitHub-hosted Swift 6.1+ toolchains so the package tests do not depend on the runner having the very latest Swift patch level.
-
-It currently runs this CI slice:
-
-```bash
-swift test --package-path Prototype
-xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test -only-testing:PingIslandTests
-```
-
-UI tests stay in the local/full regression path for now because GitHub-hosted runners are more likely to hit code-signing or macOS policy issues during `PingIslandUITests` startup.
+- **General** - launch at login, baseline app behavior, diagnostics export
+- **Display** - notch display target and placement behavior
+- **Mascot** - client mascot previews, per-client overrides, animation states
+- **Sound** - event-specific sounds, sound pack mode, sound pack import
+- **Integration** - hooks, plugin installs, IDE extension installs, accessibility guidance
+- **About** - app version, update state, release notes, update actions
 
 ## How It Works
 
-Ping Island installs hooks for Claude Code, Codex, and compatible hook clients such as CodeBuddy, Qoder, and QoderWork. Those hooks communicate session state via a Unix socket, and the app listens for events to display them in the notch overlay. `QoderWork` is currently hook-only and is not treated as a VS Code-compatible IDE extension host.
+```text
+Claude / Codex / Gemini CLI / OpenCode / Cursor / Qoder / Copilot / ...
+  -> hook or app-server event
+    -> Ping Island monitor + normalization layer
+      -> SessionStore
+        -> SessionMonitor / NotchViewModel
+          -> notch, list, hover preview, completion popup
+```
 
-When Claude needs permission to run a tool, the notch expands with approve/deny buttons—no need to switch to the terminal.
+Implementation details worth knowing:
+
+- Claude-family tools enter through managed hook files plus `PingIsland/Resources/island-state.py`.
+- Codex sessions can come from hook events or the live `codex app-server` websocket monitor.
+- Gemini CLI hooks are installed into `~/.gemini/settings.json`; tool matchers use Gemini's regex-based hook matcher syntax.
+- OpenCode is wired through a generated plugin file under `~/.config/opencode/plugins/`.
+- Focus routing spans iTerm2, Ghostty, Terminal.app, tmux, and VS Code-compatible IDE extensions.
+
+## Requirements
+
+- macOS 14.0 or later
+- Best experience on MacBooks with a notch, but external displays are supported too
+- Install whichever CLI or desktop clients you want Ping Island to monitor
 
 ## Analytics
 
-Ping Island uses Mixpanel to collect anonymous usage data:
+Ping Island uses Mixpanel for lightweight anonymous product telemetry such as app launches and session starts. Conversation content is not included in those events.
 
-- **App Launched** — App version, build number, macOS version
-- **Session Started** — When a new Claude Code session is detected
+## Acknowledgments
 
-No personal data or conversation content is collected.
+Ping Island follows the lineage of notch-first agent monitors such as [claude-island](https://github.com/farouqaldori/claude-island), and adapts that idea into a broader multi-client session surface with hooks, app-server sync, and IDE routing.
 
 ## License
 
-Apache 2.0
+Apache 2.0 - see [LICENSE.md](LICENSE.md).

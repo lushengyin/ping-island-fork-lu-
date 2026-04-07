@@ -163,6 +163,7 @@ final class AppSettingsStore: ObservableObject {
         static let taskErrorSoundEnabled = "taskErrorSoundEnabled"
         static let resourceLimitSoundEnabled = "resourceLimitSoundEnabled"
         static let soundThemeMode = "soundThemeMode"
+        static let island8BitStartSoundMigrated = "island8BitStartSoundMigrated"
         static let selectedSoundPackPath = "selectedSoundPackPath"
         static let hideInFullscreen = "hideInFullscreen"
         static let autoHideWhenIdle = "autoHideWhenIdle"
@@ -284,6 +285,7 @@ final class AppSettingsStore: ObservableObject {
         didSet {
             guard !isBootstrapping else { return }
             defaults.set(soundThemeMode.rawValue, forKey: Keys.soundThemeMode)
+            applyIsland8BitStartSoundMigrationIfNeeded(for: soundThemeMode)
         }
     }
 
@@ -437,12 +439,27 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    private func applyIsland8BitStartSoundMigrationIfNeeded(for mode: SoundThemeMode) {
+        guard mode == .island8Bit else { return }
+        guard defaults.object(forKey: Keys.island8BitStartSoundMigrated) == nil else { return }
+
+        if defaults.object(forKey: Keys.processingStartSoundEnabled) != nil,
+           processingStartSoundEnabled == false {
+            processingStartSoundEnabled = true
+        }
+
+        defaults.set(true, forKey: Keys.island8BitStartSoundMigrated)
+    }
+
     private init() {
         let legacyNotificationSound = NotificationSound(
             rawValue: defaults.string(forKey: Keys.notificationSound) ?? ""
         ) ?? .blow
         let usageValueModeRaw = defaults.string(forKey: Keys.usageValueMode)
         let soundThemeModeRaw = defaults.string(forKey: Keys.soundThemeMode)
+        let resolvedSoundThemeMode = SoundThemeMode(
+            rawValue: soundThemeModeRaw ?? ""
+        ) ?? .island8Bit
         let notchPetStyleRaw = defaults.string(forKey: Keys.notchPetStyle)
         let notchDisplayModeRaw = defaults.string(forKey: Keys.notchDisplayMode)
         let mascotOverrideRaw = defaults.dictionary(forKey: Keys.mascotOverrides) as? [String: String] ?? [:]
@@ -465,14 +482,12 @@ final class AppSettingsStore: ObservableObject {
         _resourceLimitSound = Published(initialValue: NotificationSound(
             rawValue: defaults.string(forKey: Keys.resourceLimitSound) ?? ""
         ) ?? .morse)
-        _processingStartSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.processingStartSoundEnabled) as? Bool ?? false)
+        _processingStartSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.processingStartSoundEnabled) as? Bool ?? true)
         _attentionRequiredSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.attentionRequiredSoundEnabled) as? Bool ?? true)
         _taskCompletedSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.taskCompletedSoundEnabled) as? Bool ?? true)
         _taskErrorSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.taskErrorSoundEnabled) as? Bool ?? true)
         _resourceLimitSoundEnabled = Published(initialValue: defaults.object(forKey: Keys.resourceLimitSoundEnabled) as? Bool ?? true)
-        _soundThemeMode = Published(initialValue: SoundThemeMode(
-            rawValue: soundThemeModeRaw ?? ""
-        ) ?? .builtIn)
+        _soundThemeMode = Published(initialValue: resolvedSoundThemeMode)
         _selectedSoundPackPath = Published(initialValue: defaults.string(forKey: Keys.selectedSoundPackPath) ?? "")
         _hideInFullscreen = Published(initialValue: defaults.object(forKey: Keys.hideInFullscreen) as? Bool ?? true)
         _autoHideWhenIdle = Published(initialValue: defaults.object(forKey: Keys.autoHideWhenIdle) as? Bool ?? false)
@@ -487,6 +502,14 @@ final class AppSettingsStore: ObservableObject {
         _notchDisplayMode = Published(initialValue: NotchDisplayMode(rawValue: notchDisplayModeRaw ?? "") ?? .compact)
         _mascotOverrides = Published(initialValue: Self.sanitizedMascotOverrides(mascotOverrideRaw))
 
+        if defaults.string(forKey: Keys.soundThemeMode) == nil {
+            defaults.set(resolvedSoundThemeMode.rawValue, forKey: Keys.soundThemeMode)
+        }
+        if defaults.object(forKey: Keys.processingStartSoundEnabled) == nil {
+            defaults.set(true, forKey: Keys.processingStartSoundEnabled)
+        }
+        applyIsland8BitStartSoundMigrationIfNeeded(for: resolvedSoundThemeMode)
+
         isBootstrapping = false
     }
 }
@@ -494,6 +517,7 @@ final class AppSettingsStore: ObservableObject {
 @MainActor
 enum AppSettings {
     static var shared: AppSettingsStore { AppSettingsStore.shared }
+    private static var bundledSoundCache: [String: NSSound] = [:]
 
     static var notificationSound: NotificationSound {
         get { shared.notificationSound }
@@ -646,22 +670,58 @@ enum AppSettings {
         sound.play()
     }
 
+    static func playClientStartupSound() {
+        guard soundEnabled else { return }
+        playBundledSound(named: Island8BitSound.clientStartup.rawValue)
+    }
+
     static func playSound(for event: NotificationEvent) {
         guard soundEnabled, isSoundEnabled(for: event) else { return }
 
-        if soundThemeMode == .soundPack,
-           SoundPackCatalog.shared.play(
-               event: event,
-               packPath: selectedSoundPackPath,
-               volume: Float(soundVolume)
-           ) {
-            return
-        }
+        switch soundThemeMode {
+        case .builtIn:
+            playSound(named: sound(for: event).soundName)
+        case .island8Bit:
+            playBundledSound(named: event.island8BitSound.rawValue)
+        case .soundPack:
+            if SoundPackCatalog.shared.play(
+                event: event,
+                packPath: selectedSoundPackPath,
+                volume: Float(soundVolume)
+            ) {
+                return
+            }
 
-        playSound(named: sound(for: event).soundName)
+            playSound(named: sound(for: event).soundName)
+        }
     }
 
     static func playNotificationSound(_ sound: NotificationSound? = nil) {
         playSound(named: (sound ?? notificationSound).soundName)
+    }
+
+    private static func playBundledSound(named resourceName: String) {
+        guard let sound = bundledSoundCache[resourceName] ?? loadBundledSound(named: resourceName) else {
+            return
+        }
+
+        bundledSoundCache[resourceName] = sound
+        if sound.isPlaying {
+            sound.stop()
+        }
+        sound.volume = Float(soundVolume)
+        sound.play()
+    }
+
+    private static func loadBundledSound(named resourceName: String) -> NSSound? {
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: "wav", subdirectory: "Sounds") {
+            return NSSound(contentsOf: url, byReference: false)
+        }
+
+        if let url = Bundle.main.url(forResource: resourceName, withExtension: "wav") {
+            return NSSound(contentsOf: url, byReference: false)
+        }
+
+        return nil
     }
 }

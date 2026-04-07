@@ -70,10 +70,26 @@ enum NotificationEvent: String, CaseIterable, Identifiable {
             return ["resource.limit"]
         }
     }
+
+    var island8BitSound: Island8BitSound {
+        switch self {
+        case .processingStarted:
+            return .processingStarted
+        case .attentionRequired:
+            return .attentionRequired
+        case .taskCompleted:
+            return .taskCompleted
+        case .taskError:
+            return .taskError
+        case .resourceLimit:
+            return .resourceLimit
+        }
+    }
 }
 
 enum SoundThemeMode: String, CaseIterable, Identifiable {
     case builtIn
+    case island8Bit
     case soundPack
 
     var id: String { rawValue }
@@ -82,6 +98,8 @@ enum SoundThemeMode: String, CaseIterable, Identifiable {
         switch self {
         case .builtIn:
             return "系统音"
+        case .island8Bit:
+            return "内置 8-bit"
         case .soundPack:
             return "主题包"
         }
@@ -91,8 +109,36 @@ enum SoundThemeMode: String, CaseIterable, Identifiable {
         switch self {
         case .builtIn:
             return "为不同阶段分别选择 macOS 系统音。"
+        case .island8Bit:
+            return "使用 Island 内置的 8-bit 固定方案，并带有客户端启动音。"
         case .soundPack:
             return "使用兼容 OpenPeon / CESP 的本地音效包。"
+        }
+    }
+}
+
+enum Island8BitSound: String {
+    case clientStartup = "island8bit_client_startup"
+    case processingStarted = "island8bit_processing_started"
+    case attentionRequired = "island8bit_attention_required"
+    case taskCompleted = "island8bit_task_completed"
+    case taskError = "island8bit_task_error"
+    case resourceLimit = "island8bit_resource_limit"
+
+    var label: String {
+        switch self {
+        case .clientStartup:
+            return "Power Up"
+        case .processingStarted:
+            return "Menu Select"
+        case .attentionRequired:
+            return "Item Pickup"
+        case .taskCompleted:
+            return "Menu Highlight"
+        case .taskError:
+            return "Hurt"
+        case .resourceLimit:
+            return "Hurt"
         }
     }
 }

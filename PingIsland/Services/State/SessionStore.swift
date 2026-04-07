@@ -2187,6 +2187,8 @@ actor SessionStore {
             return clientInfo.normalizedForClaudeRouting()
         case .codex:
             return clientInfo.normalizedForCodexRouting(sessionId: sessionId)
+        case .copilot:
+            return clientInfo
         }
     }
 

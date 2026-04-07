@@ -156,7 +156,7 @@ struct InstanceRow: View {
     }
 
     private var providerLabel: String {
-        session.clientDisplayName
+        session.messageBadgeDisplayName
     }
 
     private var interactionLabel: String {
@@ -472,9 +472,11 @@ struct InstanceRow: View {
         VStack(alignment: .leading, spacing: 3) {
             ForEach(previewLines) { line in
                 HStack(alignment: .firstTextBaseline, spacing: 4) {
-                    Text(line.prefix)
-                        .font(.system(size: detailFontSize, weight: .semibold))
-                        .foregroundColor(line.prefixColor)
+                    if let prefix = line.prefix {
+                        Text(prefix)
+                            .font(.system(size: detailFontSize, weight: .semibold))
+                            .foregroundColor(line.prefixColor)
+                    }
 
                     Text(line.text)
                         .font(.system(size: detailFontSize, weight: .medium))
@@ -504,7 +506,7 @@ struct InstanceRow: View {
             lines.append(
                 QueuePreviewLine(
                     id: "assistant",
-                    prefix: assistantPrefixLabel + "：",
+                    prefix: previewAssistantPrefix,
                     prefixColor: assistantPrefixColor,
                     text: assistantLine,
                     textColor: assistantTextColor
@@ -532,6 +534,15 @@ struct InstanceRow: View {
             return interactionLabel
         }
         return session.providerDisplayName
+    }
+
+    private var previewAssistantPrefix: String? {
+        let badgeLabel = providerLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        let prefixLabel = assistantPrefixLabel.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !prefixLabel.isEmpty, prefixLabel.caseInsensitiveCompare(badgeLabel) == .orderedSame {
+            return nil
+        }
+        return prefixLabel.isEmpty ? nil : prefixLabel + "："
     }
 
     private var assistantPrefixColor: Color {
@@ -682,7 +693,7 @@ struct InstanceRow: View {
 
 private struct QueuePreviewLine: Identifiable {
     let id: String
-    let prefix: String
+    let prefix: String?
     let prefixColor: Color
     let text: String
     let textColor: Color

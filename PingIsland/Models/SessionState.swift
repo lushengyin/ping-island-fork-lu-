@@ -348,6 +348,15 @@ struct SessionState: Equatable, Identifiable, Sendable {
         clientInfo.badgeLabel(for: provider)
     }
 
+    /// Message surfaces keep Codex App branding compact to avoid showing both
+    /// "Codex App" and "Codex" inside the same preview block.
+    nonisolated var messageBadgeDisplayName: String {
+        if provider == .codex, clientInfo.kind == .codexApp {
+            return providerDisplayName
+        }
+        return clientDisplayName
+    }
+
     /// Human-facing actor for questions/approvals. Prefer the IDE host when present.
     nonisolated var interactionDisplayName: String {
         clientInfo.interactionLabel(for: provider)
@@ -355,17 +364,38 @@ struct SessionState: Equatable, Identifiable, Sendable {
 
     /// Optional IDE-host badge when the terminal is hosted inside an editor.
     nonisolated var ideHostBadgeLabel: String? {
-        clientInfo.ideHostBadgeLabel(for: provider)
+        deduplicatedSecondaryBadgeLabel(clientInfo.ideHostBadgeLabel(for: provider))
     }
 
     /// Optional terminal-source badge for terminal-hosted sessions such as Ghostty or iTerm2.
     nonisolated var terminalSourceBadgeLabel: String? {
-        clientInfo.terminalSourceDisplayName
+        deduplicatedSecondaryBadgeLabel(clientInfo.terminalSourceDisplayName)
     }
 
     /// Best hint for matching window title
     nonisolated var windowHint: String {
         conversationInfo.summary ?? projectName
+    }
+
+    private nonisolated func deduplicatedSecondaryBadgeLabel(_ label: String?) -> String? {
+        guard let trimmedLabel = label?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmedLabel.isEmpty else {
+            return nil
+        }
+
+        let reservedLabels = [
+            messageBadgeDisplayName,
+            providerDisplayName,
+            clientDisplayName
+        ]
+        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
+        .filter { !$0.isEmpty }
+
+        guard !reservedLabels.contains(trimmedLabel.lowercased()) else {
+            return nil
+        }
+
+        return trimmedLabel
     }
 
     /// Pending tool name if waiting for approval

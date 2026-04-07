@@ -3,6 +3,39 @@ import XCTest
 @testable import Ping_Island
 
 final class SessionStateTests: XCTestCase {
+    func testClosedNotchMascotStatusReturnsWorkingAfterWarningsClearForLiveSession() {
+        XCTAssertEqual(
+            MascotStatus.closedNotchStatus(
+                representativePhase: .idle,
+                hasPendingPermission: false,
+                hasHumanIntervention: false
+            ),
+            .working
+        )
+    }
+
+    func testClosedNotchMascotStatusKeepsWarningWhileAttentionIsPending() {
+        XCTAssertEqual(
+            MascotStatus.closedNotchStatus(
+                representativePhase: .processing,
+                hasPendingPermission: true,
+                hasHumanIntervention: false
+            ),
+            .warning
+        )
+    }
+
+    func testClosedNotchMascotStatusReturnsIdleWhenOnlyEndedSessionRemains() {
+        XCTAssertEqual(
+            MascotStatus.closedNotchStatus(
+                representativePhase: .ended,
+                hasPendingPermission: false,
+                hasHumanIntervention: false
+            ),
+            .idle
+        )
+    }
+
     func testDisplayTitleFallsBackToSummaryThenFirstUserMessage() {
         let withSummary = SessionState(
             sessionId: "summary-session",
@@ -331,6 +364,23 @@ final class SessionStateTests: XCTestCase {
         XCTAssertEqual(session.clientInfo.terminalContextSummary, "Ghostty")
     }
 
+    func testTerminalHostedWezTermSessionShowsSourceBadge() {
+        let session = SessionState(
+            sessionId: "wezterm-session",
+            cwd: "/tmp/project",
+            clientInfo: SessionClientInfo(
+                kind: .claudeCode,
+                name: "Claude Code",
+                originator: "WezTerm",
+                terminalBundleIdentifier: "com.github.wez.wezterm",
+                terminalProgram: "WezTerm"
+            )
+        )
+
+        XCTAssertEqual(session.terminalSourceBadgeLabel, "WezTerm")
+        XCTAssertEqual(session.clientInfo.terminalContextSummary, "WezTerm")
+    }
+
     func testTerminalContextSummaryDeduplicatesTerminalOriginatorAndRemoteContext() {
         let clientInfo = SessionClientInfo(
             kind: .codexCLI,
@@ -343,6 +393,50 @@ final class SessionStateTests: XCTestCase {
         )
 
         XCTAssertEqual(clientInfo.terminalContextSummary, "Ghostty · ssh-remote@devbox")
+    }
+
+    func testCodexAppMessageBadgeUsesProviderName() {
+        let appSession = SessionState(
+            sessionId: "codex-app-session",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(
+                kind: .codexApp,
+                name: "Codex App",
+                bundleIdentifier: "com.openai.codex"
+            )
+        )
+        let cliSession = SessionState(
+            sessionId: "codex-cli-session",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(
+                kind: .codexCLI,
+                name: "Codex CLI"
+            )
+        )
+
+        XCTAssertEqual(appSession.clientDisplayName, "Codex App")
+        XCTAssertEqual(appSession.providerDisplayName, "Codex")
+        XCTAssertEqual(appSession.messageBadgeDisplayName, "Codex")
+        XCTAssertEqual(cliSession.messageBadgeDisplayName, cliSession.clientDisplayName)
+    }
+
+    func testCodexTerminalSourceBadgeIsHiddenWhenItDuplicatesPrimaryBadge() {
+        let session = SessionState(
+            sessionId: "codex-duplicate-badge",
+            cwd: "/tmp/project",
+            provider: .codex,
+            clientInfo: SessionClientInfo(
+                kind: .codexApp,
+                name: "Codex App",
+                bundleIdentifier: "com.openai.codex",
+                terminalBundleIdentifier: "com.openai.codex"
+            )
+        )
+
+        XCTAssertEqual(session.messageBadgeDisplayName, "Codex")
+        XCTAssertNil(session.terminalSourceBadgeLabel)
     }
 
     func testIDEHostedSessionsDoNotShowTerminalSourceBadge() {

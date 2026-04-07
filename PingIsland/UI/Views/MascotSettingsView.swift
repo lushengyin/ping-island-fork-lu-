@@ -153,19 +153,15 @@ struct MascotSettingsView: View {
             .frame(height: 122)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text("默认形象：\(client.defaultMascotKind.title)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Text("当前显示：\(selectedMascot.title) · \(selectedMascot.subtitle)")
+                Text("所属客户端：\(client.title)")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Picker("宠物形象", selection: selectionBinding(for: client)) {
-                Text("跟随默认 · \(client.defaultMascotKind.title)").tag(automaticSelection)
+                Text("跟随 \(client.title) 默认 · \(client.defaultMascotKind.subtitle)").tag(automaticSelection)
                 ForEach(MascotKind.allCases) { kind in
-                    Text("\(kind.title) · \(kind.subtitle)").tag(kind.rawValue)
+                    Text("\(kind.subtitle) · \(kind.title)").tag(kind.rawValue)
                 }
             }
             .pickerStyle(.menu)

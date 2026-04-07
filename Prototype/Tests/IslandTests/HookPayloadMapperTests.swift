@@ -48,6 +48,26 @@ func mapsGhosttyTerminalContextFromEnvironment() throws {
 }
 
 @Test
+func mapsWezTermTerminalContextFromEnvironment() throws {
+    let payload = """
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "wezterm-1"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: ["island-bridge", "--source", "claude"],
+        environment: ["TERM_PROGRAM": "WezTerm", "PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.terminalContext.terminalProgram == "WezTerm")
+    #expect(envelope.terminalContext.terminalBundleID == "com.github.wez.wezterm")
+}
+
+@Test
 func mapsQuestionEventOptions() throws {
     let payload = """
     {
@@ -471,4 +491,139 @@ func qoderWorkPermissionRequestAnswerPayloadUsesMatchingHookEventName() throws {
     let hookSpecificOutput = try #require(json["hookSpecificOutput"] as? [String: Any])
     #expect(hookSpecificOutput["hookEventName"] as? String == "PermissionRequest")
     #expect(hookSpecificOutput["permissionDecision"] as? String == "allow")
+}
+
+@Test
+func geminiBeforeToolMapsToRunningToolWithoutIntervention() throws {
+    let payload = """
+    {
+      "hook_event_name": "BeforeTool",
+      "tool_name": "write_file",
+      "tool_input": {"path": "/tmp/demo.swift"},
+      "session_id": "gemini-1"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: [
+            "island-bridge",
+            "--source", "claude",
+            "--client-kind", "gemini",
+            "--client-name", "Gemini CLI"
+        ],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.eventType == "BeforeTool")
+    #expect(envelope.status?.kind == .runningTool)
+    #expect(envelope.intervention == nil)
+    #expect(envelope.expectsResponse == false)
+    #expect(envelope.metadata["client_kind"] == "gemini")
+}
+
+@Test
+func geminiNotificationStaysObservabilityOnly() throws {
+    let payload = """
+    {
+      "hook_event_name": "Notification",
+      "notification_type": "ToolPermission",
+      "message": "Gemini CLI is asking for tool permission",
+      "details": {"tool_name": "write_file"},
+      "session_id": "gemini-2"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: [
+            "island-bridge",
+            "--source", "claude",
+            "--client-kind", "gemini",
+            "--client-name", "Gemini CLI"
+        ],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.eventType == "Notification")
+    #expect(envelope.status?.kind == .notification)
+    #expect(envelope.intervention == nil)
+    #expect(envelope.expectsResponse == false)
+}
+
+@Test
+func mapsCopilotPreToolUsePayloadFromOfficialFields() throws {
+    let payload = """
+    {
+      "sessionId": "copilot-1",
+      "toolName": "edit_file",
+      "toolArgs": "{\\"path\\":\\"/tmp/demo.swift\\",\\"replace\\":\\"hello\\"}",
+      "cwd": "/tmp/demo"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .copilot,
+        arguments: ["island-bridge", "--source", "copilot", "--event", "preToolUse"],
+        environment: ["PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.provider == .copilot)
+    #expect(envelope.eventType == "preToolUse")
+    #expect(envelope.sessionKey == "copilot:copilot-1")
+    #expect(envelope.title == "edit_file")
+    #expect(envelope.preview == #"edit_file {"path":"/tmp/demo.swift","replace":"hello"}"#)
+    #expect(envelope.status?.kind == .runningTool)
+    #expect(envelope.metadata["tool_name"] == "edit_file")
+    #expect(envelope.metadata["tool_input_json"] == #"{"path":"/tmp/demo.swift","replace":"hello"}"#)
+}
+
+@Test
+func mapsCopilotSessionStartFromEventFlagAndPrompt() throws {
+    let payload = """
+    {
+      "initialPrompt": "Audit the bridge hooks",
+      "cwd": "/tmp/copilot"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .copilot,
+        arguments: ["island-bridge", "--source", "copilot", "--event", "sessionStart"],
+        environment: ["PWD": "/tmp/copilot"],
+        stdinData: payload
+    )
+
+    #expect(envelope.eventType == "sessionStart")
+    #expect(envelope.preview == "Audit the bridge hooks")
+    #expect(envelope.cwd == "/tmp/copilot")
+    #expect(envelope.status?.kind == .thinking)
+}
+
+@Test
+func copilotStdoutPayloadUsesPermissionDecisionAndModifiedArgs() throws {
+    let response = BridgeResponse(
+        requestID: UUID(),
+        decision: .answer([:]),
+        updatedInput: [
+            "path": .string("/tmp/demo.swift"),
+            "replace": .string("updated")
+        ]
+    )
+
+    let payload = HookPayloadMapper.stdoutPayload(
+        for: .copilot,
+        response: response,
+        eventType: "preToolUse",
+        metadata: [:]
+    )
+
+    let json = try #require(JSONSerialization.jsonObject(with: Data(payload.utf8)) as? [String: Any])
+    #expect(json["permissionDecision"] as? String == "allow")
+    let modifiedArgs = try #require(json["modifiedArgs"] as? [String: String])
+    #expect(modifiedArgs["path"] == "/tmp/demo.swift")
+    #expect(modifiedArgs["replace"] == "updated")
 }

@@ -10,6 +10,8 @@ enum SessionClientBrand: String, Codable, Equatable, Sendable {
     case claude
     case codebuddy
     case codex
+    case gemini
+    case opencode
     case qoder
     case copilot
     case neutral
@@ -23,6 +25,11 @@ enum SessionAssistantLabelMode: String, Sendable {
 enum HookInstallEntryTemplate: Sendable {
     case plain
     case matcher(String)
+}
+
+enum ManagedHookInstallationKind: Sendable, Equatable {
+    case jsonHooks
+    case pluginFile
 }
 
 struct HookInstallEventDescriptor: Sendable {
@@ -41,6 +48,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
     let id: String
     let title: String
     let subtitle: String
+    let installationKind: ManagedHookInstallationKind
     let alwaysVisibleInSettings: Bool
     let logoAssetName: String?
     let prefersBundledLogoOverAppIcon: Bool
@@ -58,6 +66,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         id: String,
         title: String,
         subtitle: String,
+        installationKind: ManagedHookInstallationKind = .jsonHooks,
         alwaysVisibleInSettings: Bool = false,
         logoAssetName: String? = nil,
         prefersBundledLogoOverAppIcon: Bool = false,
@@ -75,6 +84,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
             id: id,
             title: title,
             subtitle: subtitle,
+            installationKind: installationKind,
             alwaysVisibleInSettings: alwaysVisibleInSettings,
             logoAssetName: logoAssetName,
             prefersBundledLogoOverAppIcon: prefersBundledLogoOverAppIcon,
@@ -94,6 +104,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         id: String,
         title: String,
         subtitle: String,
+        installationKind: ManagedHookInstallationKind = .jsonHooks,
         alwaysVisibleInSettings: Bool = false,
         logoAssetName: String? = nil,
         prefersBundledLogoOverAppIcon: Bool = false,
@@ -110,6 +121,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         self.id = id
         self.title = title
         self.subtitle = subtitle
+        self.installationKind = installationKind
         self.alwaysVisibleInSettings = alwaysVisibleInSettings
         self.logoAssetName = logoAssetName
         self.prefersBundledLogoOverAppIcon = prefersBundledLogoOverAppIcon
@@ -130,6 +142,15 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
 
     nonisolated var primaryConfigurationURL: URL {
         configurationURLs[0]
+    }
+
+    nonisolated var reinstallDescription: String {
+        switch installationKind {
+        case .jsonHooks:
+            return "这会重新写入 \(title) 的 Island hooks 配置，并保留其他非 Island hooks。"
+        case .pluginFile:
+            return "这会重新生成 \(title) 的 Island 插件文件，并覆盖旧的 Island 托管版本。"
+        }
     }
 
     nonisolated private static func resolveConfigurationURL(relativePath: String) -> URL {
@@ -397,6 +418,37 @@ enum ClientProfileRegistry {
             ]
         ),
         ManagedHookClientProfile(
+            id: "gemini-hooks",
+            title: "Gemini CLI",
+            subtitle: "管理 ~/.gemini/settings.json，按 Gemini CLI 官方 hooks 协议接入 Island",
+            alwaysVisibleInSettings: true,
+            logoAssetName: "GeminiLogo",
+            prefersBundledLogoOverAppIcon: true,
+            iconSymbolName: "sparkles.rectangle.stack.fill",
+            configurationRelativePath: ".gemini/settings.json",
+            bridgeSource: "claude",
+            bridgeExtraArguments: [
+                "--client-kind", "gemini",
+                "--client-name", "Gemini CLI",
+                "--client-origin", "cli",
+                "--client-originator", "Gemini CLI",
+                "--thread-source", "gemini-hooks"
+            ],
+            defaultEnabled: false,
+            installsClaudePythonScript: false,
+            brand: .gemini,
+            events: [
+                HookInstallEventDescriptor(name: "SessionStart", templates: [.plain]),
+                HookInstallEventDescriptor(name: "SessionEnd", templates: [.plain]),
+                HookInstallEventDescriptor(name: "BeforeAgent", templates: [.plain]),
+                HookInstallEventDescriptor(name: "AfterAgent", templates: [.plain]),
+                HookInstallEventDescriptor(name: "BeforeTool", templates: [.matcher(".*")]),
+                HookInstallEventDescriptor(name: "AfterTool", templates: [.matcher(".*")]),
+                HookInstallEventDescriptor(name: "Notification", templates: [.plain]),
+                HookInstallEventDescriptor(name: "PreCompress", templates: [.plain]),
+            ]
+        ),
+        ManagedHookClientProfile(
             id: "codebuddy-hooks",
             title: "CodeBuddy",
             subtitle: "管理 ~/.codebuddy/settings.json，按 CodeBuddy Hooks 协议接入 Island",
@@ -505,7 +557,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "copilot-hooks",
             title: "GitHub Copilot",
-            subtitle: "管理 ~/.github/hooks/island.json，支持 Copilot CLI 与 Agent hooks",
+            subtitle: "生成 GitHub Copilot hooks JSON，兼容 Copilot CLI / Agent 的 .github/hooks 协议",
             alwaysVisibleInSettings: true,
             logoAssetName: "CopilotLogo",
             prefersBundledLogoOverAppIcon: true,
@@ -527,6 +579,28 @@ enum ClientProfileRegistry {
                 HookInstallEventDescriptor(name: "subagentStop", templates: [.matcher("*")]),
                 HookInstallEventDescriptor(name: "errorOccurred", templates: [.matcher("*")]),
             ]
+        ),
+        ManagedHookClientProfile(
+            id: "opencode-hooks",
+            title: "OpenCode",
+            subtitle: "管理 ~/.config/opencode/plugins/ping-island.js，按 OpenCode 官方插件 hooks 接入 Island",
+            installationKind: .pluginFile,
+            alwaysVisibleInSettings: true,
+            localAppBundleIdentifiers: ["ai.opencode.desktop"],
+            iconSymbolName: "waveform.path.ecg.text",
+            configurationRelativePath: ".config/opencode/plugins/ping-island.js",
+            bridgeSource: "claude",
+            bridgeExtraArguments: [
+                "--client-kind", "opencode",
+                "--client-name", "OpenCode",
+                "--client-origin", "cli",
+                "--client-originator", "OpenCode",
+                "--thread-source", "opencode-plugin"
+            ],
+            defaultEnabled: false,
+            installsClaudePythonScript: false,
+            brand: .opencode,
+            events: []
         ),
     ]
 
@@ -652,6 +726,36 @@ enum ClientProfileRegistry {
             bundleIdentifiers: []
         ),
         SessionClientProfile(
+            id: "opencode",
+            provider: .claude,
+            family: .claudeHooks,
+            kind: .custom,
+            displayName: "OpenCode",
+            assistantLabelMode: .badgeLabel,
+            brand: .opencode,
+            defaultBundleIdentifier: "ai.opencode.desktop",
+            defaultOrigin: "cli",
+            recognizedKinds: ["opencode", "open-code", "open_code", "open code"],
+            exactAliases: ["opencode", "open-code", "open code"],
+            keywordAliases: ["opencode", "open code"],
+            bundleIdentifiers: ["ai.opencode.desktop"]
+        ),
+        SessionClientProfile(
+            id: "gemini",
+            provider: .claude,
+            family: .claudeHooks,
+            kind: .custom,
+            displayName: "Gemini CLI",
+            assistantLabelMode: .badgeLabel,
+            brand: .gemini,
+            defaultBundleIdentifier: nil,
+            defaultOrigin: "cli",
+            recognizedKinds: ["gemini", "gemini-cli", "gemini_cli", "gemini cli"],
+            exactAliases: ["gemini", "gemini-cli", "gemini cli"],
+            keywordAliases: ["gemini", "gemini cli"],
+            bundleIdentifiers: []
+        ),
+        SessionClientProfile(
             id: "codex-app",
             provider: .codex,
             family: .codexHooks,
@@ -680,6 +784,21 @@ enum ClientProfileRegistry {
             exactAliases: ["codex", "codex-cli", "codex cli", "codex-tui", "codex tui", "cli", "tui"],
             keywordAliases: ["codex cli", "codex tui"],
             bundleIdentifiers: []
+        ),
+        SessionClientProfile(
+            id: "copilot-cli",
+            provider: .copilot,
+            family: .codexHooks,
+            kind: .custom,
+            displayName: "GitHub Copilot",
+            assistantLabelMode: .providerDisplayName,
+            brand: .copilot,
+            defaultBundleIdentifier: nil,
+            defaultOrigin: "cli",
+            recognizedKinds: ["copilot", "copilot-cli", "copilot cli", "github-copilot", "github copilot"],
+            exactAliases: ["copilot", "copilot-cli", "copilot cli", "github copilot"],
+            keywordAliases: ["copilot", "github copilot"],
+            bundleIdentifiers: ["com.github.copilot", "com.github.copilotforxcode"]
         ),
     ]
 
@@ -832,6 +951,8 @@ enum ClientProfileRegistry {
             return runtimeProfile(id: "claude-code")
         case .codex:
             return runtimeProfile(id: kind == .codexCLI ? "codex-cli" : "codex-app")
+        case .copilot:
+            return runtimeProfile(id: "copilot-cli")
         }
     }
 

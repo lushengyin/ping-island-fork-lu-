@@ -3,6 +3,7 @@ import Foundation
 enum SessionProvider: String, Codable, Equatable, Sendable {
     case claude
     case codex
+    case copilot
 
     nonisolated var displayName: String {
         switch self {
@@ -10,6 +11,8 @@ enum SessionProvider: String, Codable, Equatable, Sendable {
             return "Claude"
         case .codex:
             return "Codex"
+        case .copilot:
+            return "Copilot"
         }
     }
 }
@@ -104,6 +107,8 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
             return SessionClientInfo(kind: .claudeCode, name: "Claude Code")
         case .codex:
             return SessionClientInfo(kind: .codexApp, name: "Codex App", bundleIdentifier: "com.openai.codex")
+        case .copilot:
+            return SessionClientInfo(kind: .custom, profileID: "copilot-cli", name: "GitHub Copilot", origin: "cli")
         }
     }
 
@@ -473,6 +478,9 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         if provider == .codex, kind == .codexCLI, normalized.hasPrefix("codex-") {
             return "Codex"
         }
+        if provider == .copilot, normalized.contains("copilot") {
+            return "GitHub Copilot"
+        }
         return nil
     }
 
@@ -481,44 +489,11 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         program: String?,
         fallbackName: String? = nil
     ) -> String? {
-        let normalizedBundleIdentifier = bundleIdentifier?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        switch normalizedBundleIdentifier {
-        case "com.googlecode.iterm2":
-            return "iTerm2"
-        case "com.apple.terminal":
-            return "Terminal"
-        case "com.mitchellh.ghostty":
-            return "Ghostty"
-        case "com.openai.codex":
-            return "Codex"
-        default:
-            break
-        }
-
-        let normalizedProgram = program?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        switch normalizedProgram {
-        case "iterm2", "iterm", "iterm.app":
-            return "iTerm2"
-        case "apple_terminal", "terminal", "terminal.app":
-            return "Terminal"
-        case "ghostty":
-            return "Ghostty"
-        case "codex":
-            return "Codex"
-        default:
-            break
-        }
-
-        guard let fallbackName = fallbackName?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !fallbackName.isEmpty,
-              TerminalAppRegistry.isTerminal(fallbackName) else {
-            return nil
-        }
-        return fallbackName
+        TerminalAppRegistry.canonicalDisplayName(
+            bundleIdentifier: bundleIdentifier,
+            program: program,
+            fallbackName: fallbackName
+        )
     }
 
     private nonisolated static func uniqueDisplayParts(_ values: [String?]) -> [String] {

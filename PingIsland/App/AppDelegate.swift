@@ -38,9 +38,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             SettingsWindowController.shared.present()
         }
         
-        // Play boot sound
+        // Play the fixed client startup sound for the bundled 8-bit theme.
         Task { @MainActor in
-            SoundManager.shared.playBoot()
+            AppSettings.playClientStartupSound()
         }
     }
 
