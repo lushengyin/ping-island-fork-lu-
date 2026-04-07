@@ -6,6 +6,7 @@
   <b>macOS 菜单栏里的 Dynamic Island 风格 AI 编码会话监视器</b><br>
   <a href="#installation">安装</a> •
   <a href="#features">功能</a> •
+  <a href="#question-flow">问答示例</a> •
   <a href="#supported-tools">支持的工具</a> •
   <a href="#build-from-source">构建</a><br>
   <a href="README.md">English</a> | 简体中文
@@ -16,15 +17,18 @@
 <p align="center">
   <img src="docs/images/notch-panel.png" width="960" alt="Ping Island 预览图">
 </p>
+<p align="center">
+  <sub>在菜单栏里查看活跃编码会话、回答追问，并一键跳回正确的终端或 IDE 窗口。</sub>
+</p>
 
 <p align="center">
-  <img src="PingIsland/Assets.xcassets/ClaudeLogo.imageset/claude-logo.png" width="28" alt="Claude Code 图标" title="Claude Code">&nbsp;
+  <img src="docs/images/product-icons/claude-app-icon.png" width="28" alt="Claude Code 图标" title="Claude Code">&nbsp;
   <img src="PingIsland/Assets.xcassets/CodexLogo.imageset/codex-logo.png" width="28" alt="Codex 图标" title="Codex">&nbsp;
   <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="28" alt="Gemini CLI 图标" title="Gemini CLI">&nbsp;
-  <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode 图标" title="OpenCode">&nbsp;
-  <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor 图标" title="Cursor">&nbsp;
+  <img src="docs/images/product-icons/opencode-app-icon.png" width="28" alt="OpenCode 图标" title="OpenCode">&nbsp;
+  <img src="docs/images/product-icons/cursor-app-icon.png" width="28" alt="Cursor 图标" title="Cursor">&nbsp;
   <img src="PingIsland/Assets.xcassets/QoderLogo.imageset/qoder-logo.png" width="28" alt="Qoder 图标" title="Qoder">&nbsp;
-  <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy 图标" title="CodeBuddy">&nbsp;
+  <img src="docs/images/product-icons/codebuddy-app-icon.png" width="28" alt="CodeBuddy 图标" title="CodeBuddy">&nbsp;
   <img src="PingIsland/Assets.xcassets/CopilotLogo.imageset/copilot-logo.png" width="28" alt="GitHub Copilot 图标" title="GitHub Copilot">
 </p>
 <p align="center">
@@ -59,18 +63,27 @@ Hook / app-server 事件
 - **Sparkle 自动更新** - 支持应用内更新检查与 Markdown 版本说明。
 - **诊断包导出** - 一键导出最近日志和配置，方便排查集成问题。
 
+<a id="question-flow"></a>
+## 就地回答问题
+
+当 Claude Code、Codex 或其他受支持客户端需要你补充上下文时，Ping Island 会直接在菜单栏里展示问题、选项和待处理会话。你可以原地补答并提交，让原会话继续执行，而不用来回找终端标签页。
+
+<p align="center">
+  <img src="docs/images/question-panel.png" width="860" alt="Ping Island 提问界面示例">
+</p>
+
 <a id="supported-tools"></a>
 ## 支持的工具
 
 | | 工具 | 接入方式 | 跳转 | 覆盖范围 |
 |:---:|------|----------|------|----------|
-| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | <img src="PingIsland/Assets.xcassets/ClaudeLogo.imageset/claude-logo.png" width="18" alt="Claude Code 产品图标"><br>Claude Code | Claude hooks | 终端、tmux、IDE 内终端 | 审批、提问、压缩、完成提醒 |
+| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | <img src="docs/images/product-icons/claude-app-icon.png" width="18" alt="Claude Code 产品图标"><br>Claude Code | Claude hooks | 终端、tmux、IDE 内终端 | 审批、提问、压缩、完成提醒 |
 | <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | <img src="PingIsland/Assets.xcassets/CodexLogo.imageset/codex-logo.png" width="18" alt="Codex 产品图标"><br>Codex App + Codex CLI | Codex app-server、hooks、rollout 解析兜底 | Codex 应用、终端 | 审批、输入请求、线程同步 |
 | <img src="docs/images/mascots/gemini.gif" width="28" alt="Gemini CLI mascot"> | <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="18" alt="Gemini CLI 产品图标"><br>Gemini CLI | Gemini CLI hooks（`~/.gemini/settings.json`） | 兼容终端宿主 | 会话生命周期、工具活动、通知、压缩前事件 |
-| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | <img src="docs/images/mascots/opencode.gif" width="18" alt="OpenCode 产品图标"><br>OpenCode | 托管插件文件 | OpenCode 应用、终端 | 插件事件转发到同一套 Island UI |
-| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | <img src="docs/images/mascots/cursor.gif" width="18" alt="Cursor 产品图标"><br>Cursor | Claude 兼容 hooks + 可选 IDE 扩展 | 项目窗口 + 对应终端 | IDE 路由与终端精准聚焦 |
+| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | <img src="docs/images/product-icons/opencode-app-icon.png" width="18" alt="OpenCode 产品图标"><br>OpenCode | 托管插件文件 | OpenCode 应用、终端 | 插件事件转发到同一套 Island UI |
+| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | <img src="docs/images/product-icons/cursor-app-icon.png" width="18" alt="Cursor 产品图标"><br>Cursor | Claude 兼容 hooks + 可选 IDE 扩展 | 项目窗口 + 对应终端 | IDE 路由与终端精准聚焦 |
 | <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | <img src="PingIsland/Assets.xcassets/QoderLogo.imageset/qoder-logo.png" width="18" alt="Qoder 产品图标"><br>Qoder/QoderWork/... | Qoder、QoderWork、Qoder CLI、JetBrains 兼容路径 | Qoder / QoderWork 窗口、终端 | 会话跳转、审批、提醒 |
-| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | <img src="docs/images/mascots/codebuddy.gif" width="18" alt="CodeBuddy 产品图标"><br>CodeBuddy | Hook 集成 + 可选 IDE 扩展 | 应用窗口 + 终端 | Claude 家族会话跟踪 |
+| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | <img src="docs/images/product-icons/codebuddy-app-icon.png" width="18" alt="CodeBuddy 产品图标"><br>CodeBuddy | Hook 集成 + 可选 IDE 扩展 | 应用窗口 + 终端 | Claude 家族会话跟踪 |
 | <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | <img src="PingIsland/Assets.xcassets/CopilotLogo.imageset/copilot-logo.png" width="18" alt="GitHub Copilot 产品图标"><br>GitHub Copilot | Copilot hook 协议 | 兼容终端宿主 | Copilot CLI / Agent hooks 事件 |
 
 Ping Island 另外还提供 VS Code 兼容的聚焦扩展，可用于 VS Code、Cursor、CodeBuddy、Qoder 和 QoderWork。`QoderWork` 目前仍然以 hook 接入为主，只有在对应 IDE 宿主可用时才会走扩展路径。
@@ -172,10 +185,6 @@ Claude / Codex / Gemini CLI / OpenCode / Cursor / Qoder / CodeBuddy / Copilot / 
 - macOS 14.0 或更高
 - 在带刘海的 MacBook 上体验最好，但也支持外接显示器
 - 安装你希望 Ping Island 监控的 CLI 或桌面客户端
-
-## 分析统计
-
-Ping Island 通过 Mixpanel 记录轻量匿名遥测，例如应用启动和会话开始事件；不会把对话内容放进这些事件里。
 
 ## 致谢
 
