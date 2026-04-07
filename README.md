@@ -63,14 +63,14 @@ Hook / app-server event
 
 | | Tool | Ingress | Jump | Coverage |
 |:---:|------|---------|------|----------|
-| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | Claude Code | Claude hooks | Terminal, tmux, IDE-hosted terminal | approvals, questions, compacting, completion |
-| <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | Codex App + Codex CLI | Codex app-server, hooks, rollout parsing fallback | Codex app, terminal | approvals, input requests, thread sync |
-| <img src="docs/images/mascots/gemini.gif" width="28" alt="Gemini CLI mascot"> | Gemini CLI | Gemini CLI hooks (`~/.gemini/settings.json`) | Compatible terminal host | session lifecycle, tool activity, notifications, compaction |
-| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | OpenCode | Managed plugin file | OpenCode app, terminal | forwarded plugin events into the same Island surface |
-| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | Cursor | Claude-compatible hooks + optional IDE extension | Project window + matching terminal | IDE routing and terminal focus |
-| <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | Qoder family | Qoder, QoderWork, Qoder CLI, JetBrains-compatible paths | Qoder / QoderWork window, terminal | session jump, approvals, reminders |
-| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | CodeBuddy | Hook integration + optional IDE extension | App window + terminal | tracked Claude-family sessions |
-| <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | GitHub Copilot | GitHub Copilot hooks (`.github/hooks/*.json`) | Compatible terminal host | Copilot CLI / agent hook events |
+| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | <img src="PingIsland/Assets.xcassets/ClaudeLogo.imageset/claude-logo.png" width="18" alt="Claude Code product icon"><br>Claude Code | Claude hooks | Terminal, tmux, IDE-hosted terminal | approvals, questions, compacting, completion |
+| <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | <img src="PingIsland/Assets.xcassets/CodexLogo.imageset/codex-logo.png" width="18" alt="Codex product icon"><br>Codex App + Codex CLI | Codex app-server, hooks, rollout parsing fallback | Codex app, terminal | approvals, input requests, thread sync |
+| <img src="docs/images/mascots/gemini.gif" width="28" alt="Gemini CLI mascot"> | <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="18" alt="Gemini CLI product icon"><br>Gemini CLI | Gemini CLI hooks (`~/.gemini/settings.json`) | Compatible terminal host | session lifecycle, tool activity, notifications, compaction |
+| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | <img src="docs/images/mascots/opencode.gif" width="18" alt="OpenCode product icon"><br>OpenCode | Managed plugin file | OpenCode app, terminal | forwarded plugin events into the same Island surface |
+| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | <img src="docs/images/mascots/cursor.gif" width="18" alt="Cursor product icon"><br>Cursor | Claude-compatible hooks + optional IDE extension | Project window + matching terminal | IDE routing and terminal focus |
+| <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | <img src="PingIsland/Assets.xcassets/QoderLogo.imageset/qoder-logo.png" width="18" alt="Qoder product icon"><br>Qoder/QoderWork/... | Qoder, QoderWork, Qoder CLI, JetBrains-compatible paths | Qoder / QoderWork window, terminal | session jump, approvals, reminders |
+| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | <img src="docs/images/mascots/codebuddy.gif" width="18" alt="CodeBuddy product icon"><br>CodeBuddy | Hook integration + optional IDE extension | App window + terminal | tracked Claude-family sessions |
+| <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | <img src="PingIsland/Assets.xcassets/CopilotLogo.imageset/copilot-logo.png" width="18" alt="GitHub Copilot product icon"><br>GitHub Copilot | GitHub Copilot hooks (`.github/hooks/*.json`) | Compatible terminal host | Copilot CLI / agent hook events |
 
 Ping Island also ships VS Code-compatible focus extensions for VS Code, Cursor, CodeBuddy, Qoder, and QoderWork. `QoderWork` remains hook-first and is only treated as an IDE extension host when that environment is actually available.
 

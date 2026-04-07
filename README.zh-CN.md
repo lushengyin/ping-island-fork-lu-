@@ -64,14 +64,14 @@ Hook / app-server 事件
 
 | | 工具 | 接入方式 | 跳转 | 覆盖范围 |
 |:---:|------|----------|------|----------|
-| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | Claude Code | Claude hooks | 终端、tmux、IDE 内终端 | 审批、提问、压缩、完成提醒 |
-| <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | Codex App + Codex CLI | Codex app-server、hooks、rollout 解析兜底 | Codex 应用、终端 | 审批、输入请求、线程同步 |
-| <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="28" alt="Gemini CLI logo"> | Gemini CLI | Gemini CLI hooks（`~/.gemini/settings.json`） | 兼容终端宿主 | 会话生命周期、工具活动、通知、压缩前事件 |
-| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | OpenCode | 托管插件文件 | OpenCode 应用、终端 | 插件事件转发到同一套 Island UI |
-| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | Cursor | Claude 兼容 hooks + 可选 IDE 扩展 | 项目窗口 + 对应终端 | IDE 路由与终端精准聚焦 |
-| <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | Qoder 家族 | Qoder、QoderWork、Qoder CLI、JetBrains 兼容路径 | Qoder / QoderWork 窗口、终端 | 会话跳转、审批、提醒 |
-| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | CodeBuddy | Hook 集成 + 可选 IDE 扩展 | 应用窗口 + 终端 | Claude 家族会话跟踪 |
-| <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | GitHub Copilot | Copilot hook 协议 | 兼容终端宿主 | Copilot CLI / Agent hooks 事件 |
+| <img src="docs/images/mascots/claude.gif" width="28" alt="Claude mascot"> | <img src="PingIsland/Assets.xcassets/ClaudeLogo.imageset/claude-logo.png" width="18" alt="Claude Code 产品图标"><br>Claude Code | Claude hooks | 终端、tmux、IDE 内终端 | 审批、提问、压缩、完成提醒 |
+| <img src="docs/images/mascots/codex.gif" width="28" alt="Codex mascot"> | <img src="PingIsland/Assets.xcassets/CodexLogo.imageset/codex-logo.png" width="18" alt="Codex 产品图标"><br>Codex App + Codex CLI | Codex app-server、hooks、rollout 解析兜底 | Codex 应用、终端 | 审批、输入请求、线程同步 |
+| <img src="docs/images/mascots/gemini.gif" width="28" alt="Gemini CLI mascot"> | <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="18" alt="Gemini CLI 产品图标"><br>Gemini CLI | Gemini CLI hooks（`~/.gemini/settings.json`） | 兼容终端宿主 | 会话生命周期、工具活动、通知、压缩前事件 |
+| <img src="docs/images/mascots/opencode.gif" width="28" alt="OpenCode mascot"> | <img src="docs/images/mascots/opencode.gif" width="18" alt="OpenCode 产品图标"><br>OpenCode | 托管插件文件 | OpenCode 应用、终端 | 插件事件转发到同一套 Island UI |
+| <img src="docs/images/mascots/cursor.gif" width="28" alt="Cursor mascot"> | <img src="docs/images/mascots/cursor.gif" width="18" alt="Cursor 产品图标"><br>Cursor | Claude 兼容 hooks + 可选 IDE 扩展 | 项目窗口 + 对应终端 | IDE 路由与终端精准聚焦 |
+| <img src="docs/images/mascots/qoder.gif" width="28" alt="Qoder mascot"> | <img src="PingIsland/Assets.xcassets/QoderLogo.imageset/qoder-logo.png" width="18" alt="Qoder 产品图标"><br>Qoder/QoderWork/... | Qoder、QoderWork、Qoder CLI、JetBrains 兼容路径 | Qoder / QoderWork 窗口、终端 | 会话跳转、审批、提醒 |
+| <img src="docs/images/mascots/codebuddy.gif" width="28" alt="CodeBuddy mascot"> | <img src="docs/images/mascots/codebuddy.gif" width="18" alt="CodeBuddy 产品图标"><br>CodeBuddy | Hook 集成 + 可选 IDE 扩展 | 应用窗口 + 终端 | Claude 家族会话跟踪 |
+| <img src="docs/images/mascots/copilot.gif" width="28" alt="Copilot mascot"> | <img src="PingIsland/Assets.xcassets/CopilotLogo.imageset/copilot-logo.png" width="18" alt="GitHub Copilot 产品图标"><br>GitHub Copilot | Copilot hook 协议 | 兼容终端宿主 | Copilot CLI / Agent hooks 事件 |
 
 Ping Island 另外还提供 VS Code 兼容的聚焦扩展，可用于 VS Code、Cursor、CodeBuddy、Qoder 和 QoderWork。`QoderWork` 目前仍然以 hook 接入为主，只有在对应 IDE 宿主可用时才会走扩展路径。
 
