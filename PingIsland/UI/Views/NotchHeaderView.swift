@@ -1210,60 +1210,21 @@ private extension NotchPetStyle {
     }
 }
 
-// Pixel art permission indicator icon
+// Compact reminder icon used for manual-attention badges.
 struct PermissionIndicatorIcon: View {
     let size: CGFloat
     let color: Color
-    @State private var phase: Int = 0
 
-    private let animationTimer = Timer.publish(every: 0.34, on: .main, in: .common).autoconnect()
-
-    init(size: CGFloat = 14, color: Color = Color(red: 0.11, green: 0.12, blue: 0.13)) {
+    init(size: CGFloat = 14, color: Color = TerminalColors.prompt) {
         self.size = size
         self.color = color
     }
 
-    // Bold pixel-art question mark with a small two-frame pulse.
-    private let frames: [[(CGFloat, CGFloat)]] = [
-        [
-            (9, 3), (13, 3), (17, 3), (21, 3),
-            (5, 7), (9, 7), (17, 7), (21, 7), (25, 7),
-            (21, 11), (17, 15), (13, 19),
-            (13, 27), (17, 27)
-        ],
-        [
-            (9, 3), (13, 3), (17, 3), (21, 3),
-            (5, 7), (9, 7), (17, 7), (21, 7), (25, 7),
-            (21, 11), (17, 15), (17, 19),
-            (13, 25), (17, 25)
-        ]
-    ]
-
     var body: some View {
-        let pixels = frames[phase % frames.count]
-
-        Canvas { context, canvasSize in
-            let scale = size / 30.0
-            let pixelSize: CGFloat = 4 * scale
-
-            for (x, y) in pixels {
-                let rect = CGRect(
-                    x: x * scale - pixelSize / 2,
-                    y: y * scale - pixelSize / 2,
-                    width: pixelSize,
-                    height: pixelSize
-                )
-                context.fill(Path(rect), with: .color(color))
-            }
-        }
-        .frame(width: size, height: size)
-        .shadow(color: color.opacity(0.45), radius: phase.isMultiple(of: 2) ? 3 : 6)
-        .scaleEffect(phase.isMultiple(of: 2) ? 1.0 : 1.08)
-        .offset(y: phase.isMultiple(of: 2) ? 0 : -0.5)
-        .animation(.easeInOut(duration: 0.22), value: phase)
-        .onReceive(animationTimer) { _ in
-            phase = (phase + 1) % frames.count
-        }
+        Image(systemName: "bell.fill")
+            .font(.system(size: size - 2, weight: .semibold))
+            .foregroundStyle(color)
+            .frame(width: size, height: size)
     }
 }
 

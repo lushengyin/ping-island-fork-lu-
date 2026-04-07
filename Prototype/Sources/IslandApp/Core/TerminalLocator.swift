@@ -31,6 +31,8 @@ actor AppleTerminalLocator: TerminalLocator {
             return "com.googlecode.iterm2"
         case "apple_terminal", "terminal", "apple terminal":
             return "com.apple.Terminal"
+        case "ghostty":
+            return "com.mitchellh.ghostty"
         default:
             return nil
         }

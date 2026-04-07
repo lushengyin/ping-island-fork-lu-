@@ -469,6 +469,13 @@ private struct HoverSessionBadges: View {
                     foreground: .white.opacity(0.92)
                 )
             }
+            if let terminalSourceBadgeLabel = session.terminalSourceBadgeLabel {
+                previewBadge(
+                    terminalSourceBadgeLabel,
+                    tint: .white.opacity(0.08),
+                    foreground: .white.opacity(0.9)
+                )
+            }
             previewBadge(
                 timeLabel,
                 tint: .white.opacity(0.08),
@@ -503,19 +510,6 @@ private struct HoverProviderGlyph: View {
     let session: SessionState
     @ObservedObject private var settings = AppSettings.shared
 
-    private var petTone: NotchIndicatorTone {
-        if session.clientInfo.brand == .codebuddy {
-            return .codebuddy
-        }
-        if session.clientInfo.brand == .qoder {
-            return .qoder
-        }
-        if session.provider == .codex {
-            return .codex
-        }
-        return .claude
-    }
-
     private var attentionTone: NotchIndicatorTone? {
         if session.needsQuestionResponse {
             return .intervention
@@ -528,11 +522,10 @@ private struct HoverProviderGlyph: View {
 
     var body: some View {
         ZStack(alignment: .topTrailing) {
-            NotchPetIcon(
-                style: settings.notchPetStyle,
-                size: 18,
-                tone: petTone,
-                activity: session.phase.isActive ? .processing : .idle
+            MascotView(
+                kind: settings.mascotKind(for: session.mascotClient),
+                status: MascotStatus(session: session),
+                size: 18
             )
             .frame(width: HoverSessionLayout.glyphSize, height: HoverSessionLayout.glyphSize)
             .background(attentionTone == nil ? Color.white.opacity(0.04) : Color.clear)

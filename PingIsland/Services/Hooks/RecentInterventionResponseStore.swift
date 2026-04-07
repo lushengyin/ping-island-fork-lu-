@@ -29,9 +29,7 @@ struct RecentInterventionResponseStore {
         updatedInput: [String: AnyCodable]?,
         now: Date = Date()
     ) {
-        guard decision == "answer",
-              event.clientInfo.profileID == "qoderwork" || event.clientInfo.bundleIdentifier == "com.qoder.work"
-        else {
+        guard decision == "answer", Self.shouldStoreAnswerReplay(for: event) else {
             return
         }
 
@@ -47,6 +45,7 @@ struct RecentInterventionResponseStore {
 
     mutating func response(for event: HookEvent, now: Date = Date()) -> RecentInterventionResponse? {
         prune(now: now)
+        guard Self.shouldReplayAnswer(for: event) else { return nil }
         guard let key = Self.cacheKey(for: event) else { return nil }
         return responses[key]
     }
@@ -58,7 +57,7 @@ struct RecentInterventionResponseStore {
     }
 
     static func cacheKey(for event: HookEvent) -> String? {
-        guard event.clientInfo.profileID == "qoderwork" || event.clientInfo.bundleIdentifier == "com.qoder.work" else {
+        guard shouldStoreAnswerReplay(for: event) else {
             return nil
         }
 
@@ -70,6 +69,45 @@ struct RecentInterventionResponseStore {
         guard let signature = questionSignature(from: event.toolInput), !signature.isEmpty else { return nil }
 
         return ([event.sessionId, normalizedTool ?? "askuserquestion"] + signature).joined(separator: "||")
+    }
+
+    private static func shouldStoreAnswerReplay(for event: HookEvent) -> Bool {
+        if event.clientInfo.profileID == "qoderwork" || event.clientInfo.bundleIdentifier == "com.qoder.work" {
+            return true
+        }
+
+        let normalizedTool = event.tool?
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        let profileID = event.clientInfo.profileID?.lowercased()
+        let bundleIdentifier = event.clientInfo.bundleIdentifier?.lowercased()
+        let isPlainClaudeCode = profileID != "qoder"
+            && profileID != "qoderwork"
+            && bundleIdentifier != "com.qoder.ide"
+            && bundleIdentifier != "com.qoder.work"
+        return event.provider == .claude && normalizedTool == "askuserquestion" && isPlainClaudeCode
+    }
+
+    private static func shouldReplayAnswer(for event: HookEvent) -> Bool {
+        if event.clientInfo.profileID == "qoderwork" || event.clientInfo.bundleIdentifier == "com.qoder.work" {
+            return true
+        }
+
+        let normalizedTool = event.tool?
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        let profileID = event.clientInfo.profileID?.lowercased()
+        let bundleIdentifier = event.clientInfo.bundleIdentifier?.lowercased()
+        let isPlainClaudeCode = profileID != "qoder"
+            && profileID != "qoderwork"
+            && bundleIdentifier != "com.qoder.ide"
+            && bundleIdentifier != "com.qoder.work"
+        return event.provider == .claude
+            && event.event == "PermissionRequest"
+            && normalizedTool == "askuserquestion"
+            && isPlainClaudeCode
     }
 
     static func questionSignature(from toolInput: [String: AnyCodable]?) -> [String]? {

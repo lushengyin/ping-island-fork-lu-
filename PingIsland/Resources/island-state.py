@@ -133,15 +133,18 @@ def detect_remote_context(env):
 def build_terminal_context(cwd, tty):
     env = os.environ
     program = env.get("TERM_PROGRAM")
+    normalized_program = (program or "").strip().lower()
     bundle_id = env.get("__CFBundleIdentifier")
     ide_name = None
     ide_bundle_id = None
 
     if not bundle_id:
-        if program == "iTerm.app":
+        if normalized_program in {"iterm2", "iterm", "iterm.app"}:
             bundle_id = "com.googlecode.iterm2"
-        elif program in {"Apple_Terminal", "Terminal.app"}:
+        elif normalized_program in {"apple_terminal", "terminal", "terminal.app"}:
             bundle_id = "com.apple.Terminal"
+        elif normalized_program == "ghostty":
+            bundle_id = "com.mitchellh.ghostty"
         else:
             ide_name, ide_bundle_id = detect_ide_context(env)
             bundle_id = ide_bundle_id
@@ -248,6 +251,8 @@ def event_title(event, tool_name):
 
 
 def expects_response(event, tool_name, tool_input):
+    if event == "PermissionRequest" and is_ask_user_question_tool(tool_name):
+        return False
     return (
         event == "PermissionRequest"
         or (event == "PreToolUse" and is_ask_user_question_tool(tool_name) and tool_input.get("questions"))
@@ -312,7 +317,7 @@ def send_event(envelope):
 
 
 def claude_permission_output(response):
-    decision = response.get("decision")
+    decision, _ = bridge_decision(response)
     reason = response.get("reason", "")
 
     if decision in {"approve", "approveForSession"}:
@@ -337,13 +342,51 @@ def claude_permission_output(response):
     return None
 
 
+def bridge_decision(response):
+    raw = response.get("decision")
+    if isinstance(raw, str):
+        return raw, {}
+
+    if isinstance(raw, dict):
+        for key in ("answer", "approve", "approveForSession", "deny", "cancel"):
+            if key in raw:
+                payload = raw.get(key)
+                return key, payload if isinstance(payload, dict) else {}
+
+    return None, {}
+
+
+def bridge_answer_payload(response, decision_payload):
+    if isinstance(decision_payload, dict):
+        nested = decision_payload.get("_0")
+        if isinstance(nested, dict):
+            return nested
+        answers = decision_payload.get("answers")
+        if isinstance(answers, dict):
+            return answers
+        if decision_payload:
+            return decision_payload
+
+    updated_input = response.get("updatedInput")
+    if isinstance(updated_input, dict):
+        answers = updated_input.get("answers")
+        if isinstance(answers, dict):
+            return answers
+
+    return None
+
+
 def claude_question_output(response):
-    if response.get("decision") != "answer":
+    decision, decision_payload = bridge_decision(response)
+    if decision != "answer":
         return None
 
     updated_input = response.get("updatedInput")
     if not isinstance(updated_input, dict):
-        return None
+        answers = bridge_answer_payload(response, decision_payload)
+        if not isinstance(answers, dict):
+            return None
+        updated_input = {"answers": answers}
 
     return {
         "hookSpecificOutput": {
@@ -362,6 +405,9 @@ def main():
 
     event = data.get("hook_event_name", "")
     notification_type = data.get("notification_type")
+
+    if event == "PermissionRequest" and is_ask_user_question_tool(data.get("tool_name")):
+        sys.exit(0)
 
     if event == "Notification" and notification_type == "permission_prompt":
         sys.exit(0)

@@ -34,6 +34,10 @@ struct CodexSessionView: View {
             HStack(spacing: 8) {
                 providerBadge
 
+                if let terminalSourceBadgeLabel = session.terminalSourceBadgeLabel {
+                    contextBadge(terminalSourceBadgeLabel)
+                }
+
                 Text(session.phase.description)
                     .font(.system(size: 11, weight: .medium, design: .monospaced))
                     .foregroundColor(.white.opacity(0.5))
@@ -136,6 +140,16 @@ struct CodexSessionView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 3)
             .background(TerminalColors.blue.opacity(0.14))
+            .clipShape(Capsule())
+    }
+
+    private func contextBadge(_ label: String) -> some View {
+        Text(label.uppercased())
+            .font(.system(size: 10, weight: .bold, design: .monospaced))
+            .foregroundColor(.white.opacity(0.82))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(Color.white.opacity(0.1))
             .clipShape(Capsule())
     }
 }

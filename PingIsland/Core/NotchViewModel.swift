@@ -56,7 +56,6 @@ class NotchViewModel: ObservableObject {
 
     private static let defaultClosedHeight: CGFloat = 32
     private static let defaultClosedWidth: CGFloat = 266
-    private static let manualAttentionClosedWidth: CGFloat = 300
     @Published private(set) var closedWidth: CGFloat
 
     var deviceNotchRect: CGRect { geometry.deviceNotchRect }
@@ -463,7 +462,7 @@ class NotchViewModel: ObservableObject {
     }
 
     func setManualAttentionActive(_ isActive: Bool) {
-        let targetWidth = isActive ? Self.manualAttentionClosedWidth : Self.defaultClosedWidth
+        let targetWidth = Self.defaultClosedWidth
         guard closedWidth != targetWidth else { return }
         closedWidth = targetWidth
     }

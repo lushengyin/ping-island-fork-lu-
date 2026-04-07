@@ -18,7 +18,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "通用"
         case .display: return "显示"
-        case .mascot: return "角色"
+        case .mascot: return "宠物"
         case .sound: return "声音"
         case .integration: return "集成"
         case .about: return "关于"
@@ -29,7 +29,7 @@ private enum SettingsCategory: String, CaseIterable, Identifiable {
         switch self {
         case .general: return "系统与基础行为"
         case .display: return "显示器与位置"
-        case .mascot: return "像素角色与动画"
+        case .mascot: return "客户端宠物与动作"
         case .sound: return "通知与提示音"
         case .integration: return "Hooks 与 IDE 扩展"
         case .about: return "版本与更新"
@@ -432,7 +432,7 @@ private struct SettingsPanelContentView: View {
         [
             SettingsSidebarSection(
                 title: nil,
-                categories: [.general, .display, .sound, .integration, .about]
+                categories: [.general, .display, .mascot, .sound, .integration, .about]
             )
         ]
     }
@@ -762,18 +762,22 @@ private struct SettingsPanelContentView: View {
                 NotchDisplayModeSelector(mode: $settings.notchDisplayMode)
             }
 
-            SettingsSectionCard(title: "宠物") {
-                SettingsInfoLine(
-                    title: "刘海宠物",
-                    subtitle: settings.notchPetStyle.subtitle
-                ) {
-                    notchPetPicker
-                }
-
+            SettingsSectionCard(title: "客户端形象") {
                 SettingsValueLine(
-                    title: "当前角色",
-                    value: settings.notchPetStyle.title
+                    title: "切换方式",
+                    value: settings.customizedMascotClientCount == 0 ? "按客户端自动切换" : "按客户端切换 + 自定义覆盖"
                 )
+
+                SettingsLineDivider()
+
+                SettingsInfoLine(
+                    title: "当前策略",
+                    subtitle: "Claude Code、Codex、Cursor、Qoder、CodeBuddy、Trae 等客户端会显示各自独立的宠物形象与动作，并支持逐客户端改成别的宠物。"
+                ) {
+                    Text(settings.customizedMascotClientCount == 0 ? "自动" : "已自定义 \(settings.customizedMascotClientCount)")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundColor(.white.opacity(0.72))
+                }
             }
         }
     }
@@ -1026,16 +1030,6 @@ private struct SettingsPanelContentView: View {
         }
         .labelsHidden()
         .settingsMenuPicker(width: 204)
-    }
-
-    private var notchPetPicker: some View {
-        Picker("刘海宠物", selection: $settings.notchPetStyle) {
-            ForEach(NotchPetStyle.allCases) { pet in
-                Text(pet.title).tag(pet)
-            }
-        }
-        .labelsHidden()
-        .settingsMenuPicker(width: 168)
     }
 
     private var screenSelectionBinding: Binding<String> {
@@ -1480,15 +1474,15 @@ private struct HookManagementIcon: View {
     let profile: ManagedHookClientProfile
 
     var body: some View {
-        if let appIcon = resolvedAppIcon {
-            Image(nsImage: appIcon)
+        if let logoAssetName = preferredLogoAssetName {
+            Image(logoAssetName)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
                 .frame(width: 34, height: 34)
                 .shadow(color: Color.black.opacity(0.18), radius: 8, y: 3)
-        } else if let logoAssetName = profile.logoAssetName {
-            Image(logoAssetName)
+        } else if let appIcon = resolvedAppIcon {
+            Image(nsImage: appIcon)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
@@ -1508,6 +1502,16 @@ private struct HookManagementIcon: View {
 
     private var resolvedAppIcon: NSImage? {
         ClientAppLocator.icon(bundleIdentifiers: profile.localAppBundleIdentifiers)
+    }
+
+    private var preferredLogoAssetName: String? {
+        guard let logoAssetName = profile.logoAssetName else {
+            return nil
+        }
+
+        return profile.prefersBundledLogoOverAppIcon || resolvedAppIcon == nil
+            ? logoAssetName
+            : nil
     }
 }
 
@@ -1957,6 +1961,7 @@ private struct NotchDisplayModeCard: View {
     let mode: NotchDisplayMode
     let isSelected: Bool
     let action: () -> Void
+    @ObservedObject private var settings = AppSettings.shared
 
     var body: some View {
         Button(action: action) {
@@ -2085,9 +2090,9 @@ private struct NotchDisplayModeCard: View {
     }
 
     private func notchMock(width: CGFloat, height: CGFloat) -> some View {
-        let actualClosedWidth: CGFloat = 266
+        let actualClosedWidth: CGFloat = 274
         let actualSideWidth: CGFloat = 30
-        let actualCenterWidth: CGFloat = 178
+        let actualCenterWidth: CGFloat = 186
         let sideSlotWidth = width * (actualSideWidth / actualClosedWidth)
         let centerSlotWidth = width * (actualCenterWidth / actualClosedWidth)
 
@@ -2126,20 +2131,7 @@ private struct NotchDisplayModeCard: View {
     }
 
     private var petMock: some View {
-        ZStack {
-            Circle()
-                .fill(accentColor.opacity(0.95))
-                .frame(width: 13, height: 13)
-
-            HStack(spacing: 2) {
-                Circle()
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 2.2, height: 2.2)
-                Circle()
-                    .fill(Color.white.opacity(0.9))
-                    .frame(width: 2.2, height: 2.2)
-            }
-        }
+        MascotView(kind: settings.mascotKind(for: .claude), status: .idle, size: 14)
     }
 
     private var processMock: some View {

@@ -53,6 +53,7 @@ struct NotchView: View {
     @State private var activeCompletionNotification: SessionCompletionNotification?
     @State private var completionNotificationDismissWorkItem: DispatchWorkItem?
     @State private var shouldDismissCompletionNotificationOnHoverExit: Bool = false
+    @State private var lastVisibleMascotClient: MascotClient = .claude
 
     @Namespace private var activityNamespace
 
@@ -124,25 +125,52 @@ struct NotchView: View {
         return .normal
     }
 
-    private var completionNotificationPetTone: NotchIndicatorTone {
-        guard let session = activeCompletionNotification?.session else { return .normal }
-        if session.clientInfo.brand == .codebuddy {
-            return .codebuddy
+    private var representativeClosedSession: SessionState? {
+        if let attention = sessionMonitor.instances
+            .filter({ $0.needsManualAttention })
+            .sorted(by: { ($0.attentionRequestedAt ?? $0.lastActivity) > ($1.attentionRequestedAt ?? $1.lastActivity) })
+            .first {
+            return attention
         }
-        if session.clientInfo.brand == .qoder {
-            return .qoder
+
+        if let active = sessionMonitor.instances
+            .filter({ $0.phase.isActive })
+            .sorted(by: { $0.lastActivity > $1.lastActivity })
+            .first {
+            return active
         }
-        return session.provider == .codex ? .codex : .claude
+
+        return sessionMonitor.instances
+            .sorted(by: { $0.lastActivity > $1.lastActivity })
+            .first
     }
 
-    private var closedPetActivity: NotchPetActivity {
-        if isProcessing {
-            return .processing
+    private var closedMascotClient: MascotClient {
+        representativeClosedSession?.mascotClient ?? lastVisibleMascotClient
+    }
+
+    private var closedMascotKind: MascotKind {
+        settings.mascotKind(for: closedMascotClient)
+    }
+
+    private var completionNotificationMascotKind: MascotKind {
+        let client = activeCompletionNotification?.session.mascotClient ?? closedMascotClient
+        return settings.mascotKind(for: client)
+    }
+
+    private var closedMascotStatus: MascotStatus {
+        if hasPendingPermission || hasHumanIntervention {
+            return .warning
         }
-        if activeSessionCount == 0 {
-            return .sleeping
+        if isProcessing {
+            return .working
         }
         return .idle
+    }
+
+    private func refreshLastVisibleMascotClient(from instances: [SessionState]) {
+        guard let latest = instances.sorted(by: { $0.lastActivity > $1.lastActivity }).first else { return }
+        lastVisibleMascotClient = latest.mascotClient
     }
 
     // MARK: - Sizing
@@ -257,6 +285,7 @@ struct NotchView: View {
             sessionMonitor.startMonitoring()
             isVisible = !viewModel.shouldHideClosedPresentation
             viewModel.setManualAttentionActive(hasManualAttentionIndicator)
+            refreshLastVisibleMascotClient(from: sessionMonitor.instances)
             handleProcessingChange()
             handleApprovalSessionsChange(sessionMonitor.instances)
             primeCompletionNotificationTracking(sessionMonitor.instances)
@@ -274,6 +303,7 @@ struct NotchView: View {
             viewModel.setManualAttentionActive(
                 instances.contains { $0.needsApprovalResponse || $0.intervention != nil }
             )
+            refreshLastVisibleMascotClient(from: instances)
             handleProcessingChange()
             handleSessionSoundTransitions(instances)
             handleApprovalSessionsChange(instances)
@@ -369,24 +399,15 @@ struct NotchView: View {
                     .frame(width: closedInnerWidth, height: closedNotchSize.height)
             } else {
                 HStack(spacing: 0) {
-                    // Left side - pet always visible while closed; permission indicator appears only when needed
+                    // Left side - pet always visible while closed.
                     if viewModel.status != .opened && showsClosedLeadingIcon {
-                        HStack(spacing: 4) {
-                            NotchPetIcon(
-                                style: settings.notchPetStyle,
-                                size: petIconSize,
-                                tone: closedIndicatorTone,
-                                activity: closedPetActivity
-                            )
-                                .matchedGeometryEffect(id: "pet", in: activityNamespace, isSource: showsClosedLeadingIcon)
-
-                            // Attention indicator follows the active state tone so question mode stays color-consistent.
-                            if hasPendingPermission || hasHumanIntervention {
-                                PermissionIndicatorIcon(size: 14, color: closedIndicatorTone.emphasisColor)
-                                    .matchedGeometryEffect(id: "status-indicator", in: activityNamespace, isSource: showClosedActivity)
-                            }
-                        }
-                        .frame(width: viewModel.status == .opened ? nil : sideWidth + ((hasPendingPermission || hasHumanIntervention) ? 18 : 0))
+                        MascotView(
+                            kind: closedMascotKind,
+                            status: closedMascotStatus,
+                            size: petIconSize
+                        )
+                            .matchedGeometryEffect(id: "pet", in: activityNamespace, isSource: showsClosedLeadingIcon)
+                        .frame(width: viewModel.status == .opened ? nil : sideWidth)
                         .padding(.leading, viewModel.status == .opened ? 8 : 0)
                     }
 
@@ -421,7 +442,7 @@ struct NotchView: View {
     }
 
     private var closedLeadingWidth: CGFloat {
-        sideWidth + ((hasPendingPermission || hasHumanIntervention) ? 18 : 0)
+        sideWidth
     }
 
     private var closedTrailingWidth: CGFloat {
@@ -466,11 +487,10 @@ struct NotchView: View {
         HStack(spacing: 12) {
             if viewModel.openReason == .notification,
                activeCompletionNotification != nil {
-                NotchPetIcon(
-                    style: settings.notchPetStyle,
-                    size: petIconSize,
-                    tone: completionNotificationPetTone,
-                    activity: .idle
+                MascotView(
+                    kind: completionNotificationMascotKind,
+                    status: .idle,
+                    size: petIconSize
                 )
                 .padding(.leading, 14)
             }

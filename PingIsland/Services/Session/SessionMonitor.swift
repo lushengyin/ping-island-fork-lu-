@@ -58,7 +58,7 @@ class SessionMonitor: ObservableObject {
                 Task {
                     await SessionStore.shared.process(.hookReceived(event))
 
-                    if let autoAnswer = await MainActor.run(body: { Self.defaultQoderWorkAutoAnswer(for: event) }) {
+                    if let autoAnswer = await MainActor.run(body: { Self.defaultQoderAutoAnswer(for: event) }) {
                         await MainActor.run {
                             HookSocketServer.shared.respondToIntervention(
                                 toolUseId: autoAnswer.toolUseId,
@@ -198,7 +198,11 @@ class SessionMonitor: ObservableObject {
 
             guard let intervention = session.intervention,
                   intervention.kind == .question,
-                  let updatedInput = updatedHookToolInput(for: intervention, answers: answers)
+                  let updatedInput = updatedHookToolInput(
+                    for: intervention,
+                    answers: answers,
+                    clientInfo: session.clientInfo
+                  )
             else {
                 return
             }
@@ -298,7 +302,30 @@ class SessionMonitor: ObservableObject {
         }
     }
 
-    private nonisolated static func updatedHookToolInput(rawJSON: String, answers: [String: [String]]) -> [String: Any]? {
+    private enum HookAnswerEncodingStrategy {
+        case lookupAliases
+        case questionText
+    }
+
+    private nonisolated static func answerEncodingStrategy(for clientInfo: SessionClientInfo?) -> HookAnswerEncodingStrategy {
+        let profileID = clientInfo?.profileID?.lowercased()
+        let bundleIdentifier = clientInfo?.bundleIdentifier?.lowercased()
+
+        if profileID == "qoder"
+            || profileID == "qoderwork"
+            || bundleIdentifier == "com.qoder.ide"
+            || bundleIdentifier == "com.qoder.work" {
+            return .lookupAliases
+        }
+
+        return .questionText
+    }
+
+    nonisolated static func updatedHookToolInput(
+        rawJSON: String,
+        answers: [String: [String]],
+        clientInfo: SessionClientInfo? = nil
+    ) -> [String: Any]? {
         guard let data = rawJSON.data(using: .utf8),
               let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
         else {
@@ -309,8 +336,10 @@ class SessionMonitor: ObservableObject {
         let questions = payload["questions"] as? [[String: Any]] ?? []
         var encodedAnswers: [String: Any] = [:]
 
+        let encodingStrategy = answerEncodingStrategy(for: clientInfo)
+
         for (index, question) in questions.enumerated() {
-            let keys = [
+            let lookupKeys = [
                 question["id"] as? String,
                 question["question"] as? String,
                 "\(index)"
@@ -318,10 +347,20 @@ class SessionMonitor: ObservableObject {
                 guard let value, !value.isEmpty else { return nil }
                 return value
             }
-            guard let values = keys.compactMap({ answers[$0] }).first, !values.isEmpty else { continue }
+            guard let values = lookupKeys.compactMap({ answers[$0] }).first, !values.isEmpty else { continue }
             let encodedValue: Any = values.count == 1 ? values[0] : values
-            for key in keys {
-                encodedAnswers[key] = encodedValue
+            switch encodingStrategy {
+            case .lookupAliases:
+                for key in lookupKeys {
+                    encodedAnswers[key] = encodedValue
+                }
+            case .questionText:
+                let outputKey = (question["question"] as? String)
+                    ?? (question["prompt"] as? String)
+                    ?? (question["id"] as? String)
+                    ?? "\(index)"
+                guard !outputKey.isEmpty else { continue }
+                encodedAnswers[outputKey] = encodedValue
             }
         }
 
@@ -329,12 +368,16 @@ class SessionMonitor: ObservableObject {
         return updated
     }
 
-    private func updatedHookToolInput(for intervention: SessionIntervention, answers: [String: [String]]) -> [String: Any]? {
+    private func updatedHookToolInput(
+        for intervention: SessionIntervention,
+        answers: [String: [String]],
+        clientInfo: SessionClientInfo
+    ) -> [String: Any]? {
         guard let rawJSON = intervention.metadata["toolInputJSON"] else {
             return nil
         }
 
-        return Self.updatedHookToolInput(rawJSON: rawJSON, answers: answers)
+        return Self.updatedHookToolInput(rawJSON: rawJSON, answers: answers, clientInfo: clientInfo)
     }
 
     nonisolated static func defaultAnswers(for intervention: SessionIntervention) -> [String: [String]] {
@@ -344,14 +387,14 @@ class SessionMonitor: ObservableObject {
         }
     }
 
-    nonisolated static func defaultQoderWorkAutoAnswer(
+    nonisolated static func defaultQoderAutoAnswer(
         for event: HookEvent
     ) -> (toolUseId: String, answers: [String: [String]], updatedInput: [String: Any])? {
-        let isQoderWork =
-            event.clientInfo.profileID == "qoderwork"
-            || event.clientInfo.bundleIdentifier == "com.qoder.work"
+        let isQoder =
+            event.clientInfo.profileID == "qoder"
+            || event.clientInfo.bundleIdentifier == "com.qoder.ide"
 
-        guard isQoderWork,
+        guard isQoder,
               let toolUseId = event.toolUseId,
               let intervention = event.intervention,
               intervention.kind == .question,
@@ -362,7 +405,11 @@ class SessionMonitor: ObservableObject {
 
         let answers = defaultAnswers(for: intervention)
         guard !answers.isEmpty,
-              let updatedInput = updatedHookToolInput(rawJSON: rawJSON, answers: answers)
+              let updatedInput = updatedHookToolInput(
+                rawJSON: rawJSON,
+                answers: answers,
+                clientInfo: event.clientInfo
+              )
         else {
             return nil
         }

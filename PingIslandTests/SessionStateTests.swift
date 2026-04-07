@@ -314,6 +314,53 @@ final class SessionStateTests: XCTestCase {
         XCTAssertNil(normalized.ideHostBadgeLabel(for: .claude))
     }
 
+    func testTerminalHostedGhosttySessionShowsSourceBadge() {
+        let session = SessionState(
+            sessionId: "ghostty-session",
+            cwd: "/tmp/project",
+            clientInfo: SessionClientInfo(
+                kind: .claudeCode,
+                name: "Claude Code",
+                originator: "Ghostty",
+                terminalBundleIdentifier: "com.mitchellh.ghostty",
+                terminalProgram: "ghostty"
+            )
+        )
+
+        XCTAssertEqual(session.terminalSourceBadgeLabel, "Ghostty")
+        XCTAssertEqual(session.clientInfo.terminalContextSummary, "Ghostty")
+    }
+
+    func testTerminalContextSummaryDeduplicatesTerminalOriginatorAndRemoteContext() {
+        let clientInfo = SessionClientInfo(
+            kind: .codexCLI,
+            name: "Codex CLI",
+            originator: "Ghostty",
+            transport: "ssh-remote",
+            remoteHost: "devbox",
+            terminalBundleIdentifier: "com.mitchellh.ghostty",
+            terminalProgram: "ghostty"
+        )
+
+        XCTAssertEqual(clientInfo.terminalContextSummary, "Ghostty · ssh-remote@devbox")
+    }
+
+    func testIDEHostedSessionsDoNotShowTerminalSourceBadge() {
+        let session = SessionState(
+            sessionId: "cursor-session",
+            cwd: "/tmp/project",
+            clientInfo: SessionClientInfo(
+                kind: .claudeCode,
+                name: "Claude Code",
+                originator: "Cursor",
+                terminalBundleIdentifier: "com.todesktop.230313mzl4w4u92"
+            )
+        )
+
+        XCTAssertNil(session.terminalSourceBadgeLabel)
+        XCTAssertEqual(session.ideHostBadgeLabel, "Cursor 终端")
+    }
+
     func testIDEHostedQoderNormalizationKeepsIDEIdentity() {
         let normalized = SessionClientInfo(
             kind: .qoder,

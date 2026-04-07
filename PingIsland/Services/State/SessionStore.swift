@@ -172,6 +172,12 @@ actor SessionStore {
             )
             return
         }
+        if shouldIgnoreClaudeAskUserQuestionPermissionRequest(event) {
+            Self.logger.notice(
+                "Ignoring duplicate Claude AskUserQuestion permission session=\(sessionId, privacy: .public)"
+            )
+            return
+        }
         var session = sessions[sessionId] ?? createSession(from: event)
         let tree = (event.pid != nil || event.tty != nil) ? ProcessTreeBuilder.shared.buildTree() : [:]
 
@@ -2258,6 +2264,28 @@ actor SessionStore {
         guard case .none = event.intervention else { return false }
 
         return Self.normalizedHookMessage(event.message) == nil
+    }
+
+    private func shouldIgnoreClaudeAskUserQuestionPermissionRequest(_ event: HookEvent) -> Bool {
+        guard event.provider == .claude,
+              event.event == "PermissionRequest" else {
+            return false
+        }
+
+        let profileID = event.clientInfo.profileID?.lowercased()
+        let bundleIdentifier = event.clientInfo.bundleIdentifier?.lowercased()
+        if profileID == "qoder"
+            || profileID == "qoderwork"
+            || bundleIdentifier == "com.qoder.ide"
+            || bundleIdentifier == "com.qoder.work" {
+            return false
+        }
+
+        let normalizedTool = event.tool?
+            .lowercased()
+            .replacingOccurrences(of: "_", with: "")
+            .replacingOccurrences(of: "-", with: "")
+        return normalizedTool == "askuserquestion"
     }
 
     private func updateCodexPlaceholderPrune(for session: SessionState) {

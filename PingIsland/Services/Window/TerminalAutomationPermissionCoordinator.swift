@@ -14,15 +14,12 @@ actor TerminalAutomationPermissionCoordinator {
         clientInfo: SessionClientInfo,
         sessionId: String
     ) {
-        guard provider == .claude,
-              clientInfo.kind == .claudeCode,
-              clientInfo.terminalBundleIdentifier == "com.googlecode.iterm2",
-              clientInfo.iTermSessionIdentifier?.isEmpty == false || clientInfo.terminalSessionIdentifier?.isEmpty == false
+        guard provider == .claude || provider == .codex,
+              let bundleIdentifier = scriptableTerminalBundleIdentifier(for: clientInfo)
         else {
             return
         }
 
-        let bundleIdentifier = "com.googlecode.iterm2"
         guard attemptedBundleIdentifiers.insert(bundleIdentifier).inserted else {
             return
         }
@@ -64,6 +61,21 @@ actor TerminalAutomationPermissionCoordinator {
             await FocusDiagnosticsStore.shared.record(
                 "AutomationPermission preflight-result session=\(sessionId) bundle=\(bundleIdentifier) pid=\(runningApplication.processIdentifier) status=\(status)"
             )
+        }
+    }
+
+    private func scriptableTerminalBundleIdentifier(for clientInfo: SessionClientInfo) -> String? {
+        switch clientInfo.terminalBundleIdentifier {
+        case "com.googlecode.iterm2":
+            if clientInfo.iTermSessionIdentifier?.isEmpty == false
+                || clientInfo.terminalSessionIdentifier?.isEmpty == false {
+                return "com.googlecode.iterm2"
+            }
+            return nil
+        case "com.mitchellh.ghostty":
+            return "com.mitchellh.ghostty"
+        default:
+            return nil
         }
     }
 }

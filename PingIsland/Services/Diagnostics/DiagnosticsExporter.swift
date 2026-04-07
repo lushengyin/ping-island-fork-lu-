@@ -226,6 +226,7 @@ actor DiagnosticsExporter {
                     "selectedSoundPackPath": AppSettings.shared.selectedSoundPackPath,
                     "notchPetStyle": AppSettings.shared.notchPetStyle.rawValue,
                     "notchDisplayMode": AppSettings.shared.notchDisplayMode.rawValue,
+                    "mascotOverrides": AppSettings.shared.mascotOverrides,
                 ],
             ]
         }

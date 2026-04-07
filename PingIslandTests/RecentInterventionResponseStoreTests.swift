@@ -134,4 +134,92 @@ final class RecentInterventionResponseStoreTests: XCTestCase {
 
         XCTAssertNil(store.response(for: event, now: Date(timeIntervalSince1970: 106)))
     }
+
+    func testClaudeAnswerCanBeReplayedForDuplicateAskUserQuestionPermissionRequest() {
+        var store = RecentInterventionResponseStore(ttl: 30)
+
+        let questionEvent = HookEvent(
+            sessionId: "claude-session",
+            cwd: "/tmp/project",
+            event: "PreToolUse",
+            status: "waiting_for_input",
+            provider: .claude,
+            clientInfo: SessionClientInfo(
+                kind: .claudeCode,
+                profileID: "claude_code",
+                name: "Claude Code",
+                bundleIdentifier: "com.anthropic.claudecode"
+            ),
+            pid: nil,
+            tty: nil,
+            tool: "AskUserQuestion",
+            toolInput: [
+                "questions": AnyCodable([
+                    [
+                        "id": "project",
+                        "header": "方向",
+                        "question": "你想先处理哪个模块？",
+                        "options": [
+                            ["label": "会话层"],
+                            ["label": "UI 层"]
+                        ]
+                    ]
+                ])
+            ],
+            toolUseId: "toolu_123",
+            notificationType: nil,
+            message: nil
+        )
+
+        let duplicatePermissionEvent = HookEvent(
+            sessionId: "claude-session",
+            cwd: "/tmp/project",
+            event: "PermissionRequest",
+            status: "waiting_for_approval",
+            provider: .claude,
+            clientInfo: SessionClientInfo(
+                kind: .claudeCode,
+                profileID: "claude_code",
+                name: "Claude Code",
+                bundleIdentifier: "com.anthropic.claudecode"
+            ),
+            pid: nil,
+            tty: nil,
+            tool: "AskUserQuestion",
+            toolInput: [
+                "questions": AnyCodable([
+                    [
+                        "id": "project",
+                        "header": "方向",
+                        "question": "你想先处理哪个模块？",
+                        "options": [
+                            ["label": "会话层"],
+                            ["label": "UI 层"]
+                        ]
+                    ]
+                ])
+            ],
+            toolUseId: "toolu_123",
+            notificationType: nil,
+            message: nil
+        )
+
+        store.record(
+            event: questionEvent,
+            decision: "answer",
+            reason: nil,
+            updatedInput: [
+                "answers": AnyCodable(["project": "会话层"])
+            ],
+            now: Date(timeIntervalSince1970: 100)
+        )
+
+        let replay = store.response(
+            for: duplicatePermissionEvent,
+            now: Date(timeIntervalSince1970: 101)
+        )
+
+        XCTAssertEqual(replay?.decision, "answer")
+        XCTAssertEqual(replay?.updatedInput?["answers"]?.value as? [String: String], ["project": "会话层"])
+    }
 }

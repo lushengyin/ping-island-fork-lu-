@@ -86,18 +86,18 @@ final class QoderWorkHookEventTimingTests: XCTestCase {
         XCTAssertEqual(event.determinePhase(), .waitingForInput)
     }
 
-    func testQoderWorkAutoAnswerUsesFirstOptionForEveryQuestion() {
+    func testQoderAutoAnswerUsesFirstOptionForEveryQuestion() {
         let event = HookEvent(
-            sessionId: "qoderwork-session",
+            sessionId: "qoder-session",
             cwd: "/tmp/project",
             event: "PreToolUse",
             status: "waiting_for_input",
             provider: .claude,
             clientInfo: SessionClientInfo(
                 kind: .qoder,
-                profileID: "qoderwork",
-                name: "QoderWork",
-                bundleIdentifier: "com.qoder.work"
+                profileID: "qoder",
+                name: "Qoder",
+                bundleIdentifier: "com.qoder.ide"
             ),
             pid: nil,
             tty: nil,
@@ -129,7 +129,7 @@ final class QoderWorkHookEventTimingTests: XCTestCase {
             message: nil
         )
 
-        let autoAnswer = SessionMonitor.defaultQoderWorkAutoAnswer(for: event)
+        let autoAnswer = SessionMonitor.defaultQoderAutoAnswer(for: event)
 
         XCTAssertEqual(autoAnswer?.toolUseId, "call_auto")
         XCTAssertEqual(autoAnswer?.answers["topic"], ["A 方案"])
@@ -138,5 +138,42 @@ final class QoderWorkHookEventTimingTests: XCTestCase {
         let answers = updatedInput?["answers"] as? [String: Any]
         XCTAssertEqual(answers?["topic"] as? String, "A 方案")
         XCTAssertEqual(answers?["style"] as? String, "简洁")
+    }
+
+    func testQoderWorkDoesNotTriggerAutoAnswer() {
+        let event = HookEvent(
+            sessionId: "qoderwork-session",
+            cwd: "/tmp/project",
+            event: "PreToolUse",
+            status: "waiting_for_input",
+            provider: .claude,
+            clientInfo: SessionClientInfo(
+                kind: .qoder,
+                profileID: "qoderwork",
+                name: "QoderWork",
+                bundleIdentifier: "com.qoder.work"
+            ),
+            pid: nil,
+            tty: nil,
+            tool: "AskUserQuestion",
+            toolInput: [
+                "questions": AnyCodable([
+                    [
+                        "id": "topic",
+                        "header": "主题",
+                        "question": "先选一个主题",
+                        "options": [
+                            ["label": "A 方案"],
+                            ["label": "B 方案"]
+                        ]
+                    ]
+                ])
+            ],
+            toolUseId: "call_auto",
+            notificationType: nil,
+            message: nil
+        )
+
+        XCTAssertNil(SessionMonitor.defaultQoderAutoAnswer(for: event))
     }
 }

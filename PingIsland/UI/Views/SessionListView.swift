@@ -167,6 +167,10 @@ struct InstanceRow: View {
         session.clientTintColor
     }
 
+    private var terminalSourceLabel: String? {
+        session.terminalSourceBadgeLabel
+    }
+
     private var titleFontSize: CGFloat {
         CGFloat(settings.contentFontSize)
     }
@@ -212,6 +216,13 @@ struct InstanceRow: View {
                             metaBadge(
                                 ideHostBadgeLabel,
                                 tint: ideHostBadgeTint,
+                                foreground: .white.opacity(0.9)
+                            )
+                        }
+                        if let terminalSourceLabel {
+                            metaBadge(
+                                terminalSourceLabel,
+                                tint: terminalBadgeTint,
                                 foreground: .white.opacity(0.9)
                             )
                         }
@@ -304,11 +315,10 @@ struct InstanceRow: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(Color.white.opacity(0.04))
 
-            NotchPetIcon(
-                style: settings.notchPetStyle,
-                size: isCollapsedCompactPresentation ? 16 : 18,
-                tone: avatarTone,
-                activity: session.phase.isActive ? .processing : .idle
+            MascotView(
+                kind: settings.mascotKind(for: session.mascotClient),
+                status: MascotStatus(session: session),
+                size: isCollapsedCompactPresentation ? 16 : 18
             )
             .padding(6)
 
@@ -348,16 +358,6 @@ struct InstanceRow: View {
         }
     }
 
-    private var avatarTone: NotchIndicatorTone {
-        if session.clientInfo.brand == .codebuddy {
-            return .codebuddy
-        }
-        if session.clientInfo.brand == .qoder {
-            return .qoder
-        }
-        return session.provider == .codex ? .codex : .claude
-    }
-
     private var statusAccentColor: Color {
         if session.needsQuestionResponse {
             return TerminalColors.blue
@@ -388,6 +388,10 @@ struct InstanceRow: View {
             return Color(red: 0.12, green: 0.88, blue: 0.56).opacity(0.2)
         }
         return Color.white.opacity(0.1)
+    }
+
+    private var terminalBadgeTint: Color {
+        Color.white.opacity(0.1)
     }
 
     private var rowBackgroundColor: Color {
@@ -443,6 +447,15 @@ struct InstanceRow: View {
                 foreground: .white.opacity(0.86),
                 compact: true
             )
+
+            if let terminalSourceLabel {
+                metaBadge(
+                    terminalSourceLabel,
+                    tint: terminalBadgeTint,
+                    foreground: .white.opacity(0.82),
+                    compact: true
+                )
+            }
 
             metaBadge(
                 timeLabel,

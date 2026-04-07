@@ -21,26 +21,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show toolchain
-        run: |
-          swift --version
-          xcodebuild -version
-
       - name: Run prototype tests
         run: swift test --package-path Prototype
 
-      - name: Build debug app
-        run: >
-          xcodebuild
-          -project PingIsland.xcodeproj
-          -scheme PingIsland
-          -configuration Debug
-          -destination 'platform=macOS'
-          -derivedDataPath "$RUNNER_TEMP/DerivedData"
-          CODE_SIGNING_ALLOWED=NO
-          build
-
-      - name: Run root unit tests
+      - name: Run Xcode unit tests
         run: >
           xcodebuild
           -project PingIsland.xcodeproj

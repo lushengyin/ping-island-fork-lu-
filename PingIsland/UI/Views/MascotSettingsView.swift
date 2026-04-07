@@ -1,147 +1,264 @@
 import SwiftUI
 
-/// Mascot character settings view
+/// Client mascot settings and preview page.
 struct MascotSettingsView: View {
-    @State private var selectedProvider: SessionProvider = .claude
+    @ObservedObject private var settings = AppSettings.shared
     @State private var previewStatus: MascotStatus = .working
-    @State private var showMascot = true
-    @State private var mascotSize: Double = 40
-    
+
+    private let automaticSelection = "__auto__"
+    private let columns = [
+        GridItem(.adaptive(minimum: 220, maximum: 280), spacing: 14)
+    ]
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                // Header
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("角色形象")
-                        .font(.title2.bold())
-                    Text("为每个 AI 工具显示独特的像素风格角色")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                
-                Divider()
-                
-                // Toggle settings
-                VStack(alignment: .leading, spacing: 12) {
-                    Toggle("显示角色形象", isOn: $showMascot)
-                        .font(.headline)
-                    
-                    HStack {
-                        Text("角色大小")
-                        Slider(value: $mascotSize, in: 24...64, step: 8)
-                        Text("\(Int(mascotSize))px")
-                            .monospacedDigit()
-                            .frame(width: 40)
-                    }
-                    .disabled(!showMascot)
-                }
-                
-                Divider()
-                
-                // Preview section
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("预览")
-                        .font(.headline)
-                    
-                    // Provider selector
-                    Picker("工具", selection: $selectedProvider) {
-                        Text("Claude").tag(SessionProvider.claude)
-                        Text("Codex").tag(SessionProvider.codex)
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    // Status selector
-                    Picker("状态", selection: $previewStatus) {
-                        ForEach(MascotStatus.allCases, id: \.self) { status in
-                            Text(status.displayName).tag(status)
-                        }
-                    }
-                    .pickerStyle(.segmented)
-                    
-                    // Mascot preview
-                    HStack {
-                        Spacer()
-                        ZStack {
-                            RoundedRectangle(cornerRadius: 16)
-                                .fill(Color(nsColor: .controlBackgroundColor))
-                                .frame(width: 120, height: 120)
-                            
-                            if showMascot {
-                                MascotView(provider: selectedProvider, status: previewStatus, size: mascotSize)
-                            } else {
-                                Image(systemName: "face.dashed")
-                                    .font(.largeTitle)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Spacer()
-                    }
-                    .padding(.vertical, 8)
-                }
-                
-                Divider()
-                
-                // Status explanations
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("状态说明")
-                        .font(.headline)
-                    
-                    StatusRow(
-                        status: .idle,
-                        icon: "moon.fill",
-                        description: "会话空闲，AI 正在等待用户输入"
-                    )
-                    
-                    StatusRow(
-                        status: .working,
-                        icon: "bolt.fill",
-                        description: "AI 正在处理任务，调用工具或生成回复"
-                    )
-                    
-                    StatusRow(
-                        status: .warning,
-                        icon: "exclamationmark.triangle.fill",
-                        description: "需要用户审批或输入"
-                    )
-                }
+                headerSection
+                controlsSection
+                clientGridSection
+                statusHelpSection
             }
             .padding(24)
         }
     }
+
+    private var headerSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("客户端宠物")
+                .font(.title2.bold())
+
+            Text("每个客户端都有默认专属形象，你也可以在这里单独改成别的宠物。刘海、会话列表和 hover 预览都会同步使用这里的配置。")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            HStack(spacing: 10) {
+                StatChip(
+                    title: "客户端",
+                    value: "\(MascotClient.allCases.count)"
+                )
+                StatChip(
+                    title: "已自定义",
+                    value: "\(settings.customizedMascotClientCount)"
+                )
+
+                Spacer()
+
+                Button("恢复全部默认") {
+                    settings.resetMascotOverrides()
+                }
+                .disabled(settings.customizedMascotClientCount == 0)
+            }
+        }
+    }
+
+    private var controlsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("状态预览")
+                    .font(.headline)
+
+                Picker("状态", selection: $previewStatus) {
+                    ForEach(MascotStatus.allCases, id: \.self) { status in
+                        Text(status.displayName).tag(status)
+                    }
+                }
+                .pickerStyle(.segmented)
+            }
+        }
+    }
+
+    private var clientGridSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("客户端对应关系")
+                .font(.headline)
+
+            LazyVGrid(columns: columns, alignment: .leading, spacing: 14) {
+                ForEach(MascotClient.allCases) { client in
+                    clientCard(for: client)
+                }
+            }
+        }
+    }
+
+    private var statusHelpSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Divider()
+
+            Text("状态说明")
+                .font(.headline)
+
+            StatusRow(
+                status: .idle,
+                icon: "moon.fill",
+                description: "长时间无新消息或会话暂停时，宠物会切到空闲中动作。"
+            )
+
+            StatusRow(
+                status: .working,
+                icon: "bolt.fill",
+                description: "会话正在处理、调用工具或压缩上下文时，宠物会切到运行中动作。"
+            )
+
+            StatusRow(
+                status: .warning,
+                icon: "exclamationmark.triangle.fill",
+                description: "审批、提问或等待人工介入时，宠物会切到警告状态动作。"
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func clientCard(for client: MascotClient) -> some View {
+        let selectedMascot = settings.mascotKind(for: client)
+        let isCustomized = settings.hasCustomMascot(for: client)
+
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(client.title)
+                        .font(.subheadline.bold())
+                        .foregroundStyle(.primary)
+                    Text(client.subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                Spacer(minLength: 8)
+
+                Text(isCustomized ? "自定义" : "默认")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(isCustomized ? Color.orange : Color.secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule(style: .continuous)
+                            .fill(Color.white.opacity(isCustomized ? 0.10 : 0.06))
+                    )
+            }
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .strokeBorder(Color.white.opacity(0.08), lineWidth: 1)
+
+                MascotView(kind: selectedMascot, status: previewStatus, size: 52)
+                    .padding(14)
+            }
+            .frame(height: 122)
+
+            VStack(alignment: .leading, spacing: 6) {
+                Text("默认形象：\(client.defaultMascotKind.title)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Text("当前显示：\(selectedMascot.title) · \(selectedMascot.subtitle)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Picker("宠物形象", selection: selectionBinding(for: client)) {
+                Text("跟随默认 · \(client.defaultMascotKind.title)").tag(automaticSelection)
+                ForEach(MascotKind.allCases) { kind in
+                    Text("\(kind.title) · \(kind.subtitle)").tag(kind.rawValue)
+                }
+            }
+            .pickerStyle(.menu)
+
+            if isCustomized {
+                Button("恢复这个客户端的默认宠物") {
+                    settings.setMascotOverride(nil, for: client)
+                }
+                .font(.caption)
+            }
+        }
+        .padding(14)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .strokeBorder(Color.white.opacity(0.06), lineWidth: 1)
+        )
+    }
+
+    private func selectionBinding(for client: MascotClient) -> Binding<String> {
+        Binding(
+            get: {
+                settings.mascotOverride(for: client)?.rawValue ?? automaticSelection
+            },
+            set: { newValue in
+                let mascot = MascotKind(rawValue: newValue)
+                settings.setMascotOverride(mascot, for: client)
+            }
+        )
+    }
 }
 
-struct StatusRow: View {
+private struct StatChip: View {
+    let title: String
+    let value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Text(value)
+                .font(.system(size: 14, weight: .semibold, design: .rounded))
+                .foregroundStyle(.primary)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 8)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+        )
+    }
+}
+
+private struct StatusRow: View {
     let status: MascotStatus
     let icon: String
     let description: String
-    
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: icon)
                 .font(.title3)
                 .foregroundStyle(colorForStatus)
                 .frame(width: 24)
-            
+
             VStack(alignment: .leading, spacing: 2) {
                 Text(status.displayName)
                     .font(.subheadline.bold())
                 Text(description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
         }
     }
-    
+
     private var colorForStatus: Color {
         switch status {
-        case .idle: return .blue
-        case .working: return .green
-        case .warning: return .orange
+        case .idle:
+            return .blue
+        case .working:
+            return .green
+        case .warning:
+            return .orange
         }
     }
 }
 
 #Preview {
     MascotSettingsView()
-        .frame(width: 500, height: 600)
+        .frame(width: 880, height: 760)
 }

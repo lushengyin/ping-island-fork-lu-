@@ -28,6 +28,26 @@ func mapsApprovalEventFromClaudePayload() throws {
 }
 
 @Test
+func mapsGhosttyTerminalContextFromEnvironment() throws {
+    let payload = """
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "ghostty-1"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: ["island-bridge", "--source", "claude"],
+        environment: ["TERM_PROGRAM": "ghostty", "PWD": "/tmp/demo"],
+        stdinData: payload
+    )
+
+    #expect(envelope.terminalContext.terminalProgram == "ghostty")
+    #expect(envelope.terminalContext.terminalBundleID == "com.mitchellh.ghostty")
+}
+
+@Test
 func mapsQuestionEventOptions() throws {
     let payload = """
     {

@@ -329,9 +329,27 @@ public enum HookPayloadMapper {
     }
 
     private static func makeTerminalContext(environment: [String: String], payload: [String: Any]) -> TerminalContext {
-        TerminalContext(
-            terminalProgram: environment["TERM_PROGRAM"],
-            terminalBundleID: environment["__CFBundleIdentifier"] ?? payload["terminalBundleID"] as? String,
+        let terminalProgram = environment["TERM_PROGRAM"]
+        let normalizedTerminalProgram = terminalProgram?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        let inferredBundleID: String?
+        switch normalizedTerminalProgram {
+        case "iterm2", "iterm", "iterm.app":
+            inferredBundleID = "com.googlecode.iterm2"
+        case "apple_terminal", "terminal", "terminal.app":
+            inferredBundleID = "com.apple.Terminal"
+        case "ghostty":
+            inferredBundleID = "com.mitchellh.ghostty"
+        default:
+            inferredBundleID = nil
+        }
+
+        return TerminalContext(
+            terminalProgram: terminalProgram,
+            terminalBundleID: environment["__CFBundleIdentifier"]
+                ?? payload["terminalBundleID"] as? String
+                ?? inferredBundleID,
             iTermSessionID: environment["ITERM_SESSION_ID"],
             terminalSessionID: environment["TERM_SESSION_ID"],
             tty: environment["TTY"],

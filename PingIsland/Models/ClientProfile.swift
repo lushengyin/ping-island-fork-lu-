@@ -43,6 +43,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
     let subtitle: String
     let alwaysVisibleInSettings: Bool
     let logoAssetName: String?
+    let prefersBundledLogoOverAppIcon: Bool
     let localAppBundleIdentifiers: [String]
     let iconSymbolName: String
     let configurationRelativePaths: [String]
@@ -59,6 +60,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         subtitle: String,
         alwaysVisibleInSettings: Bool = false,
         logoAssetName: String? = nil,
+        prefersBundledLogoOverAppIcon: Bool = false,
         localAppBundleIdentifiers: [String] = [],
         iconSymbolName: String,
         configurationRelativePath: String,
@@ -75,6 +77,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
             subtitle: subtitle,
             alwaysVisibleInSettings: alwaysVisibleInSettings,
             logoAssetName: logoAssetName,
+            prefersBundledLogoOverAppIcon: prefersBundledLogoOverAppIcon,
             localAppBundleIdentifiers: localAppBundleIdentifiers,
             iconSymbolName: iconSymbolName,
             configurationRelativePaths: [configurationRelativePath],
@@ -93,6 +96,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         subtitle: String,
         alwaysVisibleInSettings: Bool = false,
         logoAssetName: String? = nil,
+        prefersBundledLogoOverAppIcon: Bool = false,
         localAppBundleIdentifiers: [String] = [],
         iconSymbolName: String,
         configurationRelativePaths: [String],
@@ -108,6 +112,7 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         self.subtitle = subtitle
         self.alwaysVisibleInSettings = alwaysVisibleInSettings
         self.logoAssetName = logoAssetName
+        self.prefersBundledLogoOverAppIcon = prefersBundledLogoOverAppIcon
         self.localAppBundleIdentifiers = localAppBundleIdentifiers
         self.iconSymbolName = iconSymbolName
         self.configurationRelativePaths = configurationRelativePaths
@@ -502,7 +507,8 @@ enum ClientProfileRegistry {
             title: "GitHub Copilot",
             subtitle: "管理 ~/.github/hooks/island.json，支持 Copilot CLI 与 Agent hooks",
             alwaysVisibleInSettings: true,
-            logoAssetName: nil,
+            logoAssetName: "CopilotLogo",
+            prefersBundledLogoOverAppIcon: true,
             localAppBundleIdentifiers: ["com.github.Copilot", "com.github.CopilotForXcode"],
             iconSymbolName: "chevron.left.forwardslash.chevron.right",
             configurationRelativePath: ".github/hooks/island.json",

@@ -59,6 +59,28 @@ func sessionStoreAssignsDefaultTitleAndSelectionForNewCodexSessions() async thro
 }
 
 @Test
+func sessionStoreAssignsDefaultTitleForNewCopilotSessions() async throws {
+    let recorder = await MainActor.run { SnapshotRecorder() }
+    let store = SessionStore { snapshot in
+        recorder.snapshot = snapshot
+    }
+
+    await store.ingest(
+        BridgeEnvelope(
+            provider: .copilot,
+            eventType: "Start",
+            sessionKey: "copilot:new",
+            preview: "Waiting for activity"
+        )
+    )
+
+    let snapshot = await MainActor.run { recorder.snapshot }
+    #expect(snapshot.selectedSessionID == "copilot:new")
+    #expect(snapshot.sessions.first?.title == "Copilot Session")
+    #expect(snapshot.sessions.first?.status.kind == .active)
+}
+
+@Test
 func sessionStoreClearingInterventionResetsStatusButKeepsSessionVisible() async throws {
     let recorder = await MainActor.run { SnapshotRecorder() }
     let store = SessionStore { snapshot in

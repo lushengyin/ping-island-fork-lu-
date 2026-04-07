@@ -358,6 +358,11 @@ struct SessionState: Equatable, Identifiable, Sendable {
         clientInfo.ideHostBadgeLabel(for: provider)
     }
 
+    /// Optional terminal-source badge for terminal-hosted sessions such as Ghostty or iTerm2.
+    nonisolated var terminalSourceBadgeLabel: String? {
+        clientInfo.terminalSourceDisplayName
+    }
+
     /// Best hint for matching window title
     nonisolated var windowHint: String {
         conversationInfo.summary ?? projectName

@@ -2,15 +2,15 @@ import Foundation
 
 /// Mascot animation states
 enum MascotStatus: String, Codable, CaseIterable, Sendable {
-    case idle = "idle"           // 空闲状态
-    case working = "working"    // 工作中
-    case warning = "warning"    // 告警/等待审批
+    case idle = "idle"
+    case working = "working"
+    case warning = "warning"
     
     var displayName: String {
         switch self {
-        case .idle: return "空闲"
-        case .working: return "工作中"
-        case .warning: return "等待审批"
+        case .idle: return "空闲中"
+        case .working: return "运行中"
+        case .warning: return "警告状态"
         }
     }
 }

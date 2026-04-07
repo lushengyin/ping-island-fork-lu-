@@ -175,6 +175,7 @@ final class AppSettingsStore: ObservableObject {
         static let maxPanelHeight = "maxPanelHeight"
         static let notchPetStyle = "notchPetStyle"
         static let notchDisplayMode = "notchDisplayMode"
+        static let mascotOverrides = "mascotOverrides"
     }
 
     // MARK: - Published Settings
@@ -380,6 +381,62 @@ final class AppSettingsStore: ObservableObject {
         }
     }
 
+    @Published var mascotOverrides: [String: String] {
+        didSet {
+            let sanitized = Self.sanitizedMascotOverrides(mascotOverrides)
+            if mascotOverrides != sanitized {
+                mascotOverrides = sanitized
+                return
+            }
+            guard !isBootstrapping else { return }
+            defaults.set(mascotOverrides, forKey: Keys.mascotOverrides)
+        }
+    }
+
+    func mascotOverride(for client: MascotClient) -> MascotKind? {
+        guard let rawValue = mascotOverrides[client.rawValue] else {
+            return nil
+        }
+        return MascotKind(rawValue: rawValue)
+    }
+
+    func mascotKind(for client: MascotClient) -> MascotKind {
+        mascotOverride(for: client) ?? client.defaultMascotKind
+    }
+
+    func hasCustomMascot(for client: MascotClient) -> Bool {
+        mascotOverride(for: client) != nil
+    }
+
+    func setMascotOverride(_ mascot: MascotKind?, for client: MascotClient) {
+        var updated = mascotOverrides
+        if let mascot, mascot != client.defaultMascotKind {
+            updated[client.rawValue] = mascot.rawValue
+        } else {
+            updated.removeValue(forKey: client.rawValue)
+        }
+        mascotOverrides = updated
+    }
+
+    func resetMascotOverrides() {
+        mascotOverrides = [:]
+    }
+
+    var customizedMascotClientCount: Int {
+        mascotOverrides.count
+    }
+
+    private static func sanitizedMascotOverrides(_ rawOverrides: [String: String]) -> [String: String] {
+        rawOverrides.reduce(into: [:]) { result, entry in
+            guard let client = MascotClient(rawValue: entry.key),
+                  let mascot = MascotKind(rawValue: entry.value),
+                  mascot != client.defaultMascotKind else {
+                return
+            }
+            result[client.rawValue] = mascot.rawValue
+        }
+    }
+
     private init() {
         let legacyNotificationSound = NotificationSound(
             rawValue: defaults.string(forKey: Keys.notificationSound) ?? ""
@@ -388,6 +445,7 @@ final class AppSettingsStore: ObservableObject {
         let soundThemeModeRaw = defaults.string(forKey: Keys.soundThemeMode)
         let notchPetStyleRaw = defaults.string(forKey: Keys.notchPetStyle)
         let notchDisplayModeRaw = defaults.string(forKey: Keys.notchDisplayMode)
+        let mascotOverrideRaw = defaults.dictionary(forKey: Keys.mascotOverrides) as? [String: String] ?? [:]
 
         _notificationSound = Published(initialValue: legacyNotificationSound)
         _soundEnabled = Published(initialValue: defaults.object(forKey: Keys.soundEnabled) as? Bool ?? true)
@@ -427,6 +485,7 @@ final class AppSettingsStore: ObservableObject {
         _maxPanelHeight = Published(initialValue: defaults.object(forKey: Keys.maxPanelHeight) as? Double ?? 580)
         _notchPetStyle = Published(initialValue: NotchPetStyle(rawValue: notchPetStyleRaw ?? "") ?? .cat)
         _notchDisplayMode = Published(initialValue: NotchDisplayMode(rawValue: notchDisplayModeRaw ?? "") ?? .compact)
+        _mascotOverrides = Published(initialValue: Self.sanitizedMascotOverrides(mascotOverrideRaw))
 
         isBootstrapping = false
     }
@@ -514,6 +573,10 @@ enum AppSettings {
     static var notchDisplayMode: NotchDisplayMode {
         get { shared.notchDisplayMode }
         set { shared.notchDisplayMode = newValue }
+    }
+
+    static func mascotKind(for client: MascotClient) -> MascotKind {
+        shared.mascotKind(for: client)
     }
 
     static func isSoundEnabled(for event: NotificationEvent) -> Bool {

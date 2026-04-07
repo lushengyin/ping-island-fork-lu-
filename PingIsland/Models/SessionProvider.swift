@@ -240,6 +240,15 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
         return "\(ideTitle) 终端"
     }
 
+    nonisolated var terminalSourceDisplayName: String? {
+        guard !isHostedInIDE else { return nil }
+        return Self.canonicalTerminalDisplayName(
+            bundleIdentifier: terminalBundleIdentifier,
+            program: terminalProgram,
+            fallbackName: originator
+        )
+    }
+
     nonisolated var prefersAppNavigation: Bool {
         if kind == .codexCLI {
             return false
@@ -369,13 +378,16 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
             transportLabel = remoteHost
         }
 
-        let parts = [
+        let parts = Self.uniqueDisplayParts([
             originator,
             threadSource,
             transportLabel,
-            terminalProgram,
+            terminalSourceDisplayName ?? Self.canonicalTerminalDisplayName(
+                bundleIdentifier: terminalBundleIdentifier,
+                program: terminalProgram
+            ),
             tmuxPaneIdentifier
-        ].compactMap { $0?.nonEmpty }
+        ])
 
         guard !parts.isEmpty else { return nil }
         return parts.joined(separator: " · ")
@@ -462,6 +474,65 @@ struct SessionClientInfo: Codable, Equatable, Sendable {
             return "Codex"
         }
         return nil
+    }
+
+    private nonisolated static func canonicalTerminalDisplayName(
+        bundleIdentifier: String?,
+        program: String?,
+        fallbackName: String? = nil
+    ) -> String? {
+        let normalizedBundleIdentifier = bundleIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        switch normalizedBundleIdentifier {
+        case "com.googlecode.iterm2":
+            return "iTerm2"
+        case "com.apple.terminal":
+            return "Terminal"
+        case "com.mitchellh.ghostty":
+            return "Ghostty"
+        case "com.openai.codex":
+            return "Codex"
+        default:
+            break
+        }
+
+        let normalizedProgram = program?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+        switch normalizedProgram {
+        case "iterm2", "iterm", "iterm.app":
+            return "iTerm2"
+        case "apple_terminal", "terminal", "terminal.app":
+            return "Terminal"
+        case "ghostty":
+            return "Ghostty"
+        case "codex":
+            return "Codex"
+        default:
+            break
+        }
+
+        guard let fallbackName = fallbackName?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !fallbackName.isEmpty,
+              TerminalAppRegistry.isTerminal(fallbackName) else {
+            return nil
+        }
+        return fallbackName
+    }
+
+    private nonisolated static func uniqueDisplayParts(_ values: [String?]) -> [String] {
+        var seen: Set<String> = []
+        var ordered: [String] = []
+
+        for value in values {
+            guard let trimmed = value?.nonEmpty else { continue }
+            let key = trimmed.lowercased()
+            guard seen.insert(key).inserted else { continue }
+            ordered.append(trimmed)
+        }
+
+        return ordered
     }
 
     nonisolated static func appLaunchURL(
