@@ -1,6 +1,7 @@
 import Darwin
 import Foundation
 import IslandShared
+@testable import IslandApp
 import Testing
 
 enum TestSupportError: Error, CustomStringConvertible {
@@ -26,6 +27,29 @@ final class SnapshotRecorder {
 
     var sessions: [AgentSession] {
         snapshot.sessions
+    }
+}
+
+func withRunningSocketServer<T>(
+    socketPath: String,
+    sessionStore: SessionStore,
+    approvalCoordinator: ApprovalCoordinator,
+    _ body: (SocketServer) async throws -> T
+) async throws -> T {
+    let server = SocketServer(
+        socketPath: socketPath,
+        sessionStore: sessionStore,
+        approvalCoordinator: approvalCoordinator
+    )
+
+    try await server.start()
+    do {
+        let result = try await body(server)
+        await server.stop()
+        return result
+    } catch {
+        await server.stop()
+        throw error
     }
 }
 

@@ -14,8 +14,8 @@ actor SocketServer {
         self.approvalCoordinator = approvalCoordinator
     }
 
-    func start() throws {
-        stop()
+    func start() async throws {
+        await stop()
 
         unlink(socketPath)
 
@@ -57,7 +57,14 @@ actor SocketServer {
             while !Task.isCancelled {
                 let clientFD = accept(acceptedListenerFD, nil, nil)
                 if clientFD < 0 {
+                    if Task.isCancelled {
+                        break
+                    }
                     continue
+                }
+                if Task.isCancelled {
+                    close(clientFD)
+                    break
                 }
                 Task.detached {
                     await self.handle(clientFD: clientFD)
@@ -66,12 +73,21 @@ actor SocketServer {
         }
     }
 
-    func stop() {
-        acceptTask?.cancel()
+    func stop() async {
+        let task = acceptTask
         acceptTask = nil
-        if listenerFD >= 0 {
-            close(listenerFD)
-            listenerFD = -1
+        task?.cancel()
+
+        let fd = listenerFD
+        listenerFD = -1
+        if fd >= 0 {
+            Self.wakeListener(socketPath: socketPath)
+            shutdown(fd, SHUT_RDWR)
+            close(fd)
+        }
+
+        if let task {
+            await task.value
         }
         unlink(socketPath)
     }
@@ -117,5 +133,28 @@ actor SocketServer {
             data.append(buffer, count: readCount)
         }
         return data
+    }
+
+    private static func wakeListener(socketPath: String) {
+        let clientFD = socket(AF_UNIX, SOCK_STREAM, 0)
+        guard clientFD >= 0 else { return }
+        defer { close(clientFD) }
+
+        var address = sockaddr_un()
+        address.sun_family = sa_family_t(AF_UNIX)
+
+        let maxLength = MemoryLayout.size(ofValue: address.sun_path)
+        let utf8 = socketPath.utf8CString.map(UInt8.init(bitPattern:))
+        guard utf8.count <= maxLength else { return }
+
+        withUnsafeMutableBytes(of: &address.sun_path) { buffer in
+            buffer.copyBytes(from: utf8)
+        }
+
+        _ = withUnsafePointer(to: &address) {
+            $0.withMemoryRebound(to: sockaddr.self, capacity: 1) {
+                connect(clientFD, $0, socklen_t(MemoryLayout<sockaddr_un>.size))
+            }
+        }
     }
 }

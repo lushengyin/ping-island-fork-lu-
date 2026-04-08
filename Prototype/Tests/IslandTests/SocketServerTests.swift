@@ -12,35 +12,32 @@ func socketServerPersistsStateOnlyEnvelopes() async throws {
         }
         let coordinator = ApprovalCoordinator()
         let socketPath = directory.appending(path: "island.sock").path()
-        let server = SocketServer(
+        try await withRunningSocketServer(
             socketPath: socketPath,
             sessionStore: store,
             approvalCoordinator: coordinator
-        )
+        ) { _ in
+            let envelope = BridgeEnvelope(
+                id: UUID(),
+                provider: .claude,
+                eventType: "PostToolUse",
+                sessionKey: "claude:socket-state",
+                title: "Socket State",
+                preview: "Completed tool run",
+                cwd: "/tmp/socket-state",
+                status: SessionStatus(kind: .active)
+            )
 
-        try await server.start()
-        defer { Task { await server.stop() } }
+            let response = try TestSocketClient.send(envelope: envelope, socketPath: socketPath)
 
-        let envelope = BridgeEnvelope(
-            id: UUID(),
-            provider: .claude,
-            eventType: "PostToolUse",
-            sessionKey: "claude:socket-state",
-            title: "Socket State",
-            preview: "Completed tool run",
-            cwd: "/tmp/socket-state",
-            status: SessionStatus(kind: .active)
-        )
+            #expect(response.requestID == envelope.id)
+            #expect(response.decision == nil)
+            #expect(response.errorMessage == nil)
 
-        let response = try TestSocketClient.send(envelope: envelope, socketPath: socketPath)
-
-        #expect(response.requestID == envelope.id)
-        #expect(response.decision == nil)
-        #expect(response.errorMessage == nil)
-
-        try await waitUntil(description: "state-only socket event should be stored") {
-            await MainActor.run {
-                recorder.sessions.contains(where: { $0.id == "claude:socket-state" && $0.preview == "Completed tool run" })
+            try await waitUntil(description: "state-only socket event should be stored") {
+                await MainActor.run {
+                    recorder.sessions.contains(where: { $0.id == "claude:socket-state" && $0.preview == "Completed tool run" })
+                }
             }
         }
     }
@@ -55,50 +52,47 @@ func socketServerReturnsApprovalDecisionForInteractiveEnvelopes() async throws {
         }
         let coordinator = ApprovalCoordinator()
         let socketPath = directory.appending(path: "island.sock").path()
-        let server = SocketServer(
+        try await withRunningSocketServer(
             socketPath: socketPath,
             sessionStore: store,
             approvalCoordinator: coordinator
-        )
+        ) { _ in
+            let intervention = InterventionRequest(
+                id: UUID(),
+                sessionID: "claude:socket-approval",
+                kind: .approval,
+                title: "Claude needs approval",
+                message: "Run tests?"
+            )
+            let envelope = BridgeEnvelope(
+                id: UUID(),
+                provider: .claude,
+                eventType: "PermissionRequest",
+                sessionKey: "claude:socket-approval",
+                title: "Approval",
+                preview: "Run tests",
+                cwd: "/tmp/socket-approval",
+                status: SessionStatus(kind: .waitingForApproval),
+                intervention: intervention,
+                expectsResponse: true
+            )
 
-        try await server.start()
-        defer { Task { await server.stop() } }
+            async let response = Task.detached {
+                try TestSocketClient.send(envelope: envelope, socketPath: socketPath)
+            }.value
 
-        let intervention = InterventionRequest(
-            id: UUID(),
-            sessionID: "claude:socket-approval",
-            kind: .approval,
-            title: "Claude needs approval",
-            message: "Run tests?"
-        )
-        let envelope = BridgeEnvelope(
-            id: UUID(),
-            provider: .claude,
-            eventType: "PermissionRequest",
-            sessionKey: "claude:socket-approval",
-            title: "Approval",
-            preview: "Run tests",
-            cwd: "/tmp/socket-approval",
-            status: SessionStatus(kind: .waitingForApproval),
-            intervention: intervention,
-            expectsResponse: true
-        )
-
-        async let response = Task.detached {
-            try TestSocketClient.send(envelope: envelope, socketPath: socketPath)
-        }.value
-
-        try await waitUntil(description: "interactive socket event should surface an intervention") {
-            await MainActor.run {
-                recorder.snapshot.highlightedIntervention?.id == intervention.id
+            try await waitUntil(description: "interactive socket event should surface an intervention") {
+                await MainActor.run {
+                    recorder.snapshot.highlightedIntervention?.id == intervention.id
+                }
             }
+
+            await coordinator.resolve(requestID: intervention.id, decision: .approve)
+            let resolved = try await response
+
+            #expect(resolved.requestID == envelope.id)
+            #expect(resolved.decision == .approve)
+            #expect(resolved.errorMessage == nil)
         }
-
-        await coordinator.resolve(requestID: intervention.id, decision: .approve)
-        let resolved = try await response
-
-        #expect(resolved.requestID == envelope.id)
-        #expect(resolved.decision == .approve)
-        #expect(resolved.errorMessage == nil)
     }
 }
