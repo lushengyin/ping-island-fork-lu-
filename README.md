@@ -1,5 +1,5 @@
 <h1 align="center">
-  <img src="docs/images/ping-island-halo-icon-transparent.svg" width="64" height="64" alt="Ping Island logo" valign="middle">&nbsp;
+  <img src="PingIsland/Assets.xcassets/AppIcon.appiconset/icon_128x128.png" width="64" height="64" alt="Ping Island app icon" valign="middle">&nbsp;
   Ping Island
 </h1>
 <p align="center">
