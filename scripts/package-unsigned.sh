@@ -54,11 +54,14 @@ fi
 
 echo ""
 echo "Re-signing app bundle with a consistent ad-hoc signature..."
+# Do not preserve the original signing flags here. Keeping the release build's
+# hardened runtime flags on an ad-hoc unsigned app has produced Sparkle load
+# failures on downloaded DMGs.
 codesign \
     --force \
     --deep \
     --sign - \
-    --preserve-metadata=identifier,entitlements,flags \
+    --preserve-metadata=identifier,entitlements \
     "$APP_PATH"
 
 echo "Verifying app bundle signature..."
