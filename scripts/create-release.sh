@@ -227,6 +227,12 @@ else
         if [ -f "$NOTES_ASSET_PATH" ]; then
             gh release upload "v$VERSION" "$NOTES_ASSET_PATH" --repo "$GITHUB_REPO" --clobber
         fi
+        if [ -f "$NOTES_PATH" ]; then
+            gh release edit "v$VERSION" \
+                --repo "$GITHUB_REPO" \
+                --title "Ping Island v$VERSION" \
+                --notes-file "$NOTES_PATH"
+        fi
     else
         echo "Creating release v$VERSION..."
         RELEASE_ASSETS=("$DMG_PATH")
@@ -234,10 +240,16 @@ else
             RELEASE_ASSETS+=("$NOTES_ASSET_PATH")
         fi
 
-        gh release create "v$VERSION" "${RELEASE_ASSETS[@]}" \
-            --repo "$GITHUB_REPO" \
-            --title "Ping Island v$VERSION" \
-            --notes "## Ping Island v$VERSION
+        if [ -f "$NOTES_PATH" ]; then
+            gh release create "v$VERSION" "${RELEASE_ASSETS[@]}" \
+                --repo "$GITHUB_REPO" \
+                --title "Ping Island v$VERSION" \
+                --notes-file "$NOTES_PATH"
+        else
+            gh release create "v$VERSION" "${RELEASE_ASSETS[@]}" \
+                --repo "$GITHUB_REPO" \
+                --title "Ping Island v$VERSION" \
+                --notes "## Ping Island v$VERSION
 
 ### Installation
 1. Download \`$APP_NAME-$VERSION.dmg\`
@@ -246,6 +258,7 @@ else
 
 ### Auto-updates
 After installation, Ping Island will automatically check for updates."
+        fi
     fi
 
     GITHUB_DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$APP_NAME-$VERSION.dmg"
