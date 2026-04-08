@@ -11,7 +11,7 @@ final class OpenCodeIntegrationTests: XCTestCase {
         XCTAssertEqual(profile?.brand, .opencode)
         XCTAssertEqual(profile?.localAppBundleIdentifiers, ["ai.opencode.desktop"])
         XCTAssertEqual(profile?.primaryConfigurationURL.path, NSHomeDirectory() + "/.config/opencode/plugins/ping-island.js")
-        XCTAssertTrue(profile?.reinstallDescription.contains("插件文件") == true)
+        XCTAssertTrue(profile?.reinstallDescriptionFormat.contains("插件文件") == true)
     }
 
     func testOpenCodeRuntimeProfileResolvesBrandAndMascot() {

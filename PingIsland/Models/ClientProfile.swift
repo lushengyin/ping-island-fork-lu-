@@ -139,12 +139,12 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         configurationURLs[0]
     }
 
-    nonisolated var reinstallDescription: String {
+    nonisolated var reinstallDescriptionFormat: String {
         switch installationKind {
         case .jsonHooks:
-            return "这会重新写入 \(title) 的 Island hooks 配置，并保留其他非 Island hooks。"
+            return "这会重新写入 %@ 的 Island hooks 配置，并保留其他非 Island hooks。"
         case .pluginFile:
-            return "这会重新生成 \(title) 的 Island 插件文件，并覆盖旧的 Island 托管版本。"
+            return "这会重新生成 %@ 的 Island 插件文件，并覆盖旧的 Island 托管版本。"
         }
     }
 

@@ -413,7 +413,7 @@ private struct SettingsPanelContentView: View {
                 pendingHookReinstallProfile = nil
             }
         } message: { profile in
-            Text(profile.reinstallDescription)
+            Text(verbatim: AppLocalization.format(profile.reinstallDescriptionFormat, profile.title))
         }
     }
 
@@ -1691,7 +1691,7 @@ private struct IDEExtensionManagementLine: View {
             }
 
             if !isInstalled {
-                Text("安装完成后，如编辑器尚未识别扩展，请重启对应 IDE 再点击“授权”。")
+                Text(appLocalized: "安装完成后，如编辑器尚未识别扩展，请重启对应 IDE 再点击“授权”。")
                     .font(.system(size: 11, weight: .medium))
                     .foregroundColor(.white.opacity(0.44))
                     .fixedSize(horizontal: false, vertical: true)
