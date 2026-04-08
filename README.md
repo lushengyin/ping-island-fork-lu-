@@ -62,32 +62,22 @@ Hook / app-server event
 
 ## Features
 
-Ping Island is designed around the human-in-the-loop moments that actually break coding flow, then wraps them in a native macOS presentation that feels crisp instead of noisy.
+Ping Island focuses on the moments that actually interrupt coding flow, then keeps them visible and actionable from a native macOS notch surface.
 
-- **Signal First** - Stay compact until a session needs approval, input, or review, then expand into a Dynamic Island-style control surface that works on notch Macs and external displays.
-- **Act In Place** - Approve tools, deny requests, and answer follow-up prompts directly from the notch instead of digging through terminal tabs.
-- **Jump Back Precisely** - Return to the matching iTerm2, Ghostty, Terminal.app, tmux pane, or VS Code-compatible IDE window with the right session in context.
-- **Multi-Client Coverage** - Track Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Qoder, CodeBuddy, GitHub Copilot, and compatible hook-driven sessions from one menu bar app.
-- **Managed Integrations** - Install or repair Claude, Codex, Gemini CLI, OpenCode, Qoder, CodeBuddy, Copilot, and related hook/plugin setups from Settings, including GitHub-style `.github/hooks/*.json` templates.
-- **Codex Beyond Hooks** - Support Codex CLI hooks plus live Codex app-server thread sync, with rollout parsing fallback when extra session context is needed.
-- **Customize a dedicated mascot for your agent** - Pick from 8 built-in mascots, override them per client, and let them switch motion based on idle / working / warning states.
-- **Sound packs and event audio** - built-in event sounds plus support for importing custom sound packs.
-- **Sparkle updates and markdown release notes** - in-app update checks and version notes sourced from the release pipeline.
-- **Diagnostics export** - bundle recent logs and config into a zip when you need to debug a broken integration.
+- **Attention-first UI** - Stay compact until a session needs approval, input, review, or intervention.
+- **Act from the notch** - Approve tools, deny requests, and answer follow-up prompts without hunting through tabs.
+- **One-click return** - Jump back to the right iTerm2, Ghostty, Terminal.app, tmux pane, or IDE window.
+- **Multi-agent coverage** - Track Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Qoder, CodeBuddy, GitHub Copilot, and other compatible sessions in one place.
+- **Codex hook + app-server sync** - Support Codex CLI hooks, live app-server threads, and rollout parsing fallback when needed.
+- **Custom sounds** - Pick per-event macOS sounds or import local sound packs for your own notification style.
+- **Custom agent mascots** - Give each client its own animated mascot override across the notch, session list, and hover UI.
 
 <a id="supported-tools"></a>
 ## Supported Tools
 
-| Icon | Tool | Ingress | Jump | Coverage |
-|:---:|------|---------|------|----------|
-| <img src="docs/images/product-icons/claude-app-icon.png" width="32" alt="Claude Code product icon"> | Claude Code | Claude hooks | Terminal, tmux, IDE-hosted terminal | approvals, questions, compacting, completion |
-| <img src="PingIsland/Assets.xcassets/CodexLogo.imageset/codex-logo.png" width="32" alt="Codex product icon"> | Codex App + Codex CLI | Codex app-server, hooks, rollout parsing fallback | Codex app, terminal | approvals, input requests, thread sync |
-| <img src="PingIsland/Assets.xcassets/GeminiLogo.imageset/gemini-logo.png" width="32" alt="Gemini CLI product icon"> | Gemini CLI | Gemini CLI hooks (`~/.gemini/settings.json`) | Compatible terminal host | session lifecycle, tool activity, notifications, compaction |
-| <img src="docs/images/product-icons/opencode-app-icon.png" width="32" alt="OpenCode product icon"> | OpenCode | Managed plugin file | OpenCode app, terminal | forwarded plugin events into the same Island surface |
-| <img src="docs/images/product-icons/cursor-app-icon.png" width="32" alt="Cursor product icon"> | Cursor | Claude-compatible hooks + optional IDE extension | Project window + matching terminal | IDE routing and terminal focus |
-| <img src="PingIsland/Assets.xcassets/QoderLogo.imageset/qoder-logo.png" width="32" alt="Qoder product icon"> | Qoder/QoderWork/... | Qoder, QoderWork, Qoder CLI, JetBrains-compatible paths | Qoder / QoderWork window, terminal | session jump, approvals, reminders |
-| <img src="docs/images/product-icons/codebuddy-app-icon.png" width="32" alt="CodeBuddy product icon"> | CodeBuddy | Hook integration + optional IDE extension | App window + terminal | tracked Claude-family sessions |
-| <img src="PingIsland/Assets.xcassets/CopilotLogo.imageset/copilot-logo.png" width="32" alt="GitHub Copilot product icon"> | GitHub Copilot | GitHub Copilot hooks (`.github/hooks/*.json`) | Compatible terminal host | Copilot CLI / agent hook events |
+<p align="center">
+  <img src="docs/images/ping-island-mascot-poster.png" width="960" alt="Ping Island supported tools poster">
+</p>
 
 Ping Island also ships VS Code-compatible focus extensions for VS Code, Cursor, CodeBuddy, Qoder, and QoderWork. `QoderWork` remains hook-first and is only treated as an IDE extension host when that environment is actually available.
 
@@ -101,7 +91,7 @@ The mascot GIFs used throughout this README are generated from the live `MascotV
 1. Go to [Releases](https://github.com/erha19/ping-island/releases).
 2. Download the latest DMG or zip package.
 3. Move `Ping Island.app` into your Applications folder.
-4. Launch the app, then open **Settings -> Integration** to install the integrations you want.
+4. Launch the app and start the clients you want Ping Island to monitor.
 
 > On first launch, macOS may ask you to confirm the app or grant Accessibility / Apple Events permissions for focus features.
 
@@ -157,14 +147,12 @@ If `PingIslandUITests-Runner` stays suspended on macOS, run the UI tests from Xc
 
 ## Settings
 
-Ping Island currently ships a 6-category settings panel:
+Ping Island currently ships a 4-category settings panel:
 
-- **General** - launch at login, baseline app behavior, diagnostics export
+- **General** - launch at login and baseline app behavior
 - **Display** - notch display target and placement behavior
 - **Mascot** - client mascot previews, per-client overrides, animation states
 - **Sound** - event-specific sounds, sound pack mode, sound pack import
-- **Integration** - hooks, plugin installs, IDE extension installs, accessibility guidance
-- **About** - app version, update state, release notes, update actions
 
 ## How It Works
 

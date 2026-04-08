@@ -61,18 +61,15 @@ Hook / app-server 事件
 <a id="features"></a>
 ## 功能特性
 
-Ping Island 聚焦的不是“多一个状态面板”，而是把真正会打断编码节奏的人机协作时刻，用更原生、更克制的 macOS 方式接住。
+Ping Island 关注的，是那些真正会打断编码节奏的时刻，并把它们用原生 macOS 刘海界面接住。
 
-- **先感知，再打扰** - 平时保持紧凑，只有当会话需要审批、补充输入或查看结果时，才展开成灵动岛风格的交互界面；刘海屏和外接显示器都能正常工作。
-- **原地处理，不切屏** - 直接在刘海界面里批准工具调用、拒绝请求、回答追问，不需要来回翻终端标签页。
-- **精准跳回现场** - 尽量把你准确带回对应的 iTerm2、Ghostty、Terminal.app、tmux pane，或 VS Code 兼容 IDE 窗口。
-- **多客户端统一收口** - 用一个菜单栏入口持续跟踪 Claude Code、Codex、Gemini CLI、OpenCode、Cursor、Qoder、CodeBuddy、GitHub Copilot 以及兼容 hooks 的会话。
-- **集成安装可托管** - 可在设置页里安装或修复 Claude、Codex、Gemini CLI、OpenCode、Qoder、CodeBuddy、Copilot 等 hooks / 插件集成，也覆盖 GitHub 风格的 `.github/hooks/*.json` 模板。
-- **不止 hooks 的 Codex 支持** - 同时覆盖 Codex CLI hooks 与 Codex app-server 线程同步，并在需要时用 rollout 解析做会话上下文兜底。
-- **为你的 Agent 定制专属宠物形象** - 内置 8 款宠物，可按客户端单独切换，并根据空闲 / 运行 / 警告状态播放不同动作。
-- **声音包与事件提示音** - 既能直接使用内置提示音，也能导入自定义 sound pack。
-- **Sparkle 自动更新** - 支持应用内更新检查与 Markdown 版本说明。
-- **诊断包导出** - 一键导出最近日志和配置，方便排查集成问题。
+- **先感知，再展开** - 平时保持紧凑，只有在会话需要审批、输入、查看结果或人工介入时才展开。
+- **原地处理** - 直接在刘海界面里批准工具调用、拒绝请求、回答追问。
+- **一键跳回现场** - 快速回到对应的 iTerm2、Ghostty、Terminal.app、tmux pane 或 IDE 窗口。
+- **多 Agent 统一收口** - 在一个菜单栏入口里持续跟踪 Claude Code、Codex、Gemini CLI、OpenCode、Cursor、Qoder、CodeBuddy、GitHub Copilot 等兼容会话。
+- **Codex hooks + app-server** - 同时支持 Codex CLI hooks、实时 app-server 线程同步，以及 rollout 解析兜底。
+- **自定义音效** - 可按事件选择 macOS 系统音，也支持导入本地 sound pack。
+- **自定义 Agent 形象** - 可按客户端覆盖专属吉祥物，并同步到 notch、会话列表和 hover 预览。
 
 <a id="supported-tools"></a>
 ## 支持的工具
@@ -98,7 +95,7 @@ Ping Island 另外还提供 VS Code 兼容的聚焦扩展，可用于 VS Code、
 1. 打开 [Releases](https://github.com/erha19/ping-island/releases)
 2. 下载最新的 DMG 或 zip 包
 3. 将 `Ping Island.app` 拖到 Applications
-4. 启动应用后，进入 **Settings -> Integration** 安装你需要的集成
+4. 启动应用，并打开你希望 Ping Island 监控的客户端
 
 > 首次启动时，macOS 可能会要求你确认应用，或授予辅助功能 / Apple Events 权限以支持聚焦能力。
 
@@ -154,14 +151,12 @@ xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug
 
 ## 设置面板
 
-Ping Island 当前提供 6 个设置分类：
+Ping Island 当前提供 4 个设置分类：
 
-- **General** - 登录启动、基础行为、诊断导出
+- **General** - 登录启动与基础行为
 - **Display** - 显示器选择与位置行为
 - **Mascot** - 宠物预览、客户端覆盖、动作状态
 - **Sound** - 事件声音、声音包模式、声音包导入
-- **Integration** - hooks、插件安装、IDE 扩展安装、辅助功能引导
-- **About** - 版本、更新状态、版本说明、更新操作
 
 ## 工作原理
 
