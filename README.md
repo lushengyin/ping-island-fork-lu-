@@ -50,16 +50,6 @@ Ping Island is a macOS menu bar app that expands into a Dynamic Island-style sur
 
 If you have seen [Vibe Island](https://vibeisland.app/), Ping Island is positioned as an independent open-source alternative in the same category: a native macOS notch/menu bar surface for monitoring and controlling AI coding sessions.
 
-The app is built around a simple runtime flow:
-
-```text
-Hook / app-server event
-  -> monitor and service layers
-    -> SessionStore
-      -> SessionMonitor + NotchViewModel
-        -> notch UI, session list, hover preview, completion notifications
-```
-
 ## Features
 
 Ping Island focuses on the moments that actually interrupt coding flow, then keeps them visible and actionable from a native macOS notch surface.
