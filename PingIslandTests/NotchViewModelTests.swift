@@ -47,6 +47,7 @@ final class NotchViewModelTests: XCTestCase {
         }
     }
 
+    @MainActor
     private func makeViewModel() -> NotchViewModel {
         NotchViewModel(
             deviceNotchRect: .zero,
