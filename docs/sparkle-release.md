@@ -8,9 +8,10 @@ The repo also ships `.github/workflows/release-packages.yml` for GitHub-hosted p
 - It runs `./scripts/package-unsigned.sh` to generate both `.dmg` and `.zip`.
 - It publishes those assets to the matching GitHub Release for a `v*` tag.
 - It is safe to rerun after a partially failed publish; the workflow reuses the existing tag release, re-uploads assets with `--clobber`, and then updates the final draft / prerelease state.
+- It re-signs the built app bundle with a consistent ad-hoc signature before packaging so embedded frameworks and helpers keep a matching local-test signature.
 - It does not notarize, staple, or generate Sparkle appcast assets.
 
-Use that workflow when you want downloadable GitHub Release artifacts without the local signing / notarization toolchain. Use the flow below when you need the notarized Sparkle release path.
+Use that workflow when you want downloadable GitHub Release artifacts without the local signing / notarization toolchain. Those artifacts are still local-test-only unsigned builds, and macOS may require `Open` from Finder's context menu or manual quarantine removal on first launch. Use the flow below when you need the notarized Sparkle release path.
 
 ## One-time setup
 
@@ -45,4 +46,5 @@ Use that workflow when you want downloadable GitHub Release artifacts without th
 - The GitHub Actions release-packaging workflow is intentionally separate from the Sparkle release flow above.
 - `Config/LocalSecrets.xcconfig` is intentionally gitignored.
 - `scripts/create-release.sh` will package `releases/notes/<version>.md` as `PingIsland-<version>.md`.
+- `scripts/create-release.sh` also uses `releases/notes/<version>.md` as the GitHub Release body when the file exists, and falls back to a short built-in message otherwise.
 - The app prefers Markdown release notes and falls back to Sparkle's explicit release notes links when Markdown is unavailable.

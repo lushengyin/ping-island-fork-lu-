@@ -52,6 +52,18 @@ if [ ! -d "$APP_PATH" ]; then
     exit 1
 fi
 
+echo ""
+echo "Re-signing app bundle with a consistent ad-hoc signature..."
+codesign \
+    --force \
+    --deep \
+    --sign - \
+    --preserve-metadata=identifier,entitlements,flags \
+    "$APP_PATH"
+
+echo "Verifying app bundle signature..."
+codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PATH/Contents/Info.plist")
 BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_PATH/Contents/Info.plist")
 
@@ -88,4 +100,5 @@ echo "App: $APP_PATH"
 echo "ZIP: $ZIP_PATH"
 echo "DMG: $DMG_PATH"
 echo ""
-echo "Note: This build is ad-hoc signed only. Other users may need to right-click Open or clear quarantine manually."
+echo "Note: This build is for local testing only."
+echo "Note: It is ad-hoc signed and not notarized, so macOS may require right-click Open or quarantine removal on first launch."

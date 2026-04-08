@@ -117,14 +117,17 @@ jobs:
           set -euo pipefail
 
           notes_file="$RUNNER_TEMP/release-notes.md"
+          warning_block='> Warning: These GitHub Actions artifacts are unsigned local-test builds. Ping Island re-signs the app bundle with a consistent ad-hoc signature, but macOS may still require right-click Open or manual quarantine removal on first launch.'
 
           if [ "${{ steps.meta.outputs.has_notes }}" = "true" ]; then
             cp "${{ steps.meta.outputs.notes_path }}" "$notes_file"
+            printf '\n\n%s\n' "$warning_block" >> "$notes_file"
           else
-            printf 'Release build for %s.\n\nIncluded assets:\n- %s\n- %s\n' \
+            printf 'Release build for %s.\n\nIncluded assets:\n- %s\n- %s\n\n%s\n' \
               "$RELEASE_TAG" \
               "$(basename "${{ steps.meta.outputs.dmg_path }}")" \
               "$(basename "${{ steps.meta.outputs.zip_path }}")" \
+              "$warning_block" \
               > "$notes_file"
           fi
 

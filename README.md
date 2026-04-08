@@ -101,11 +101,13 @@ xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Debug
 xcodebuild -project PingIsland.xcodeproj -scheme PingIsland -configuration Release build
 ```
 
-To create a locally shareable unsigned package:
+To create a locally shareable unsigned package for local testing:
 
 ```bash
 ./scripts/package-unsigned.sh
 ```
+
+The script re-signs the built app bundle with a consistent ad-hoc signature before creating the `.dmg` and `.zip`, which helps embedded frameworks launch more reliably on another machine. The package is still unsigned for distribution and not notarized, so first launch may still require `Open` from Finder's context menu or manual quarantine removal.
 
 For the full notarized release flow and Sparkle appcast setup, see [docs/sparkle-release.md](docs/sparkle-release.md).
 
