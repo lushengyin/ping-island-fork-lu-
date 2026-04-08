@@ -92,7 +92,7 @@ struct ChatView: View {
                             insertion: .opacity.combined(with: .move(edge: .bottom)),
                             removal: .opacity
                         ))
-                } else {
+                } else if canSendMessages {
                     inputBar
                         .transition(.opacity)
                 }
@@ -386,17 +386,16 @@ struct ChatView: View {
 
     private var inputBar: some View {
         HStack(spacing: 10) {
-            TextField(canSendMessages ? "Message Claude..." : "Open Claude Code in tmux to enable messaging", text: $inputText)
+            TextField("Message Claude...", text: $inputText)
                 .textFieldStyle(.plain)
                 .font(.system(size: 13))
-                .foregroundColor(canSendMessages ? .white : .white.opacity(0.4))
+                .foregroundColor(.white)
                 .focused($isInputFocused)
-                .disabled(!canSendMessages)
                 .padding(.horizontal, 14)
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 20)
-                        .fill(Color.white.opacity(canSendMessages ? 0.08 : 0.04))
+                        .fill(Color.white.opacity(0.08))
                         .overlay(
                             RoundedRectangle(cornerRadius: 20)
                                 .strokeBorder(Color.white.opacity(0.1), lineWidth: 1)
@@ -411,10 +410,10 @@ struct ChatView: View {
             } label: {
                 Image(systemName: "arrow.up.circle.fill")
                     .font(.system(size: 28))
-                    .foregroundColor(!canSendMessages || inputText.isEmpty ? .white.opacity(0.2) : .white.opacity(0.9))
+                    .foregroundColor(inputText.isEmpty ? .white.opacity(0.2) : .white.opacity(0.9))
             }
             .buttonStyle(.plain)
-            .disabled(!canSendMessages || inputText.isEmpty)
+            .disabled(inputText.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 12)
