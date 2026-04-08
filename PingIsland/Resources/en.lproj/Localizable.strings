@@ -153,10 +153,12 @@
 "已自定义" = "Customized";
 "恢复全部默认" = "Reset all to default";
 "状态预览" = "State preview";
+"状态" = "State";
 "状态说明" = "State descriptions";
 "客户端对应关系" = "Client mapping";
 "自定义" = "Custom";
 "默认" = "Default";
+"宠物形象" = "Mascot";
 "所属客户端：%@" = "Client: %@";
 "跟随 %@ 默认 · %@" = "Follow %@ default · %@";
 "%@ · %@" = "%@ · %@";

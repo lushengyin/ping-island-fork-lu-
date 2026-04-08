@@ -153,15 +153,29 @@ struct MascotSettingsView: View {
             .frame(height: 122)
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(verbatim: AppLocalization.format("所属客户端：%@", client.title))
+                Text(verbatim: AppLocalization.format("所属客户端：%@", AppLocalization.string(client.title)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
 
             Picker("宠物形象", selection: selectionBinding(for: client)) {
-                Text(verbatim: AppLocalization.format("跟随 %@ 默认 · %@", client.title, client.defaultMascotKind.subtitle)).tag(automaticSelection)
+                Text(
+                    verbatim: AppLocalization.format(
+                        "跟随 %@ 默认 · %@",
+                        AppLocalization.string(client.title),
+                        AppLocalization.string(client.defaultMascotKind.subtitle)
+                    )
+                )
+                .tag(automaticSelection)
                 ForEach(MascotKind.allCases) { kind in
-                    Text(verbatim: AppLocalization.format("%@ · %@", kind.subtitle, kind.title)).tag(kind.rawValue)
+                    Text(
+                        verbatim: AppLocalization.format(
+                            "%@ · %@",
+                            AppLocalization.string(kind.subtitle),
+                            AppLocalization.string(kind.title)
+                        )
+                    )
+                    .tag(kind.rawValue)
                 }
             }
             .pickerStyle(.menu)
