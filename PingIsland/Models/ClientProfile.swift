@@ -58,7 +58,6 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
     let bridgeSource: String
     let bridgeExtraArguments: [String]
     let defaultEnabled: Bool
-    let installsClaudePythonScript: Bool
     let brand: SessionClientBrand
     let events: [HookInstallEventDescriptor]
 
@@ -76,7 +75,6 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         bridgeSource: String,
         bridgeExtraArguments: [String],
         defaultEnabled: Bool,
-        installsClaudePythonScript: Bool,
         brand: SessionClientBrand,
         events: [HookInstallEventDescriptor]
     ) {
@@ -94,7 +92,6 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
             bridgeSource: bridgeSource,
             bridgeExtraArguments: bridgeExtraArguments,
             defaultEnabled: defaultEnabled,
-            installsClaudePythonScript: installsClaudePythonScript,
             brand: brand,
             events: events
         )
@@ -114,7 +111,6 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         bridgeSource: String,
         bridgeExtraArguments: [String],
         defaultEnabled: Bool,
-        installsClaudePythonScript: Bool,
         brand: SessionClientBrand,
         events: [HookInstallEventDescriptor]
     ) {
@@ -131,7 +127,6 @@ struct ManagedHookClientProfile: Identifiable, Sendable {
         self.bridgeSource = bridgeSource
         self.bridgeExtraArguments = bridgeExtraArguments
         self.defaultEnabled = defaultEnabled
-        self.installsClaudePythonScript = installsClaudePythonScript
         self.brand = brand
         self.events = events
     }
@@ -370,7 +365,7 @@ enum ClientProfileRegistry {
         ManagedHookClientProfile(
             id: "claude-hooks",
             title: "Claude Code",
-            subtitle: "管理 ~/.claude/settings.json 与 ~/.claude/hooks/island-state.py",
+            subtitle: "管理 ~/.claude/settings.json，使用统一 PingIslandBridge hooks 入口",
             alwaysVisibleInSettings: true,
             logoAssetName: "ClaudeLogo",
             localAppBundleIdentifiers: ["com.anthropic.claudefordesktop"],
@@ -379,7 +374,6 @@ enum ClientProfileRegistry {
             bridgeSource: "claude",
             bridgeExtraArguments: [],
             defaultEnabled: true,
-            installsClaudePythonScript: true,
             brand: .claude,
             events: [
                 HookInstallEventDescriptor(name: "UserPromptSubmit", templates: [.plain]),
@@ -406,7 +400,6 @@ enum ClientProfileRegistry {
             bridgeSource: "codex",
             bridgeExtraArguments: [],
             defaultEnabled: true,
-            installsClaudePythonScript: false,
             brand: .codex,
             events: [
                 HookInstallEventDescriptor(name: "SessionStart", templates: [.matcher("*")]),
@@ -435,7 +428,6 @@ enum ClientProfileRegistry {
                 "--thread-source", "gemini-hooks"
             ],
             defaultEnabled: false,
-            installsClaudePythonScript: false,
             brand: .gemini,
             events: [
                 HookInstallEventDescriptor(name: "SessionStart", templates: [.plain]),
@@ -462,7 +454,6 @@ enum ClientProfileRegistry {
                 "--client-originator", "CodeBuddy"
             ],
             defaultEnabled: false,
-            installsClaudePythonScript: false,
             brand: .codebuddy,
             events: [
                 HookInstallEventDescriptor(name: "UserPromptSubmit", templates: [.plain]),
@@ -490,7 +481,6 @@ enum ClientProfileRegistry {
                 "--client-originator", "Cursor"
             ],
             defaultEnabled: false,
-            installsClaudePythonScript: false,
             brand: .claude,
             events: [
                 HookInstallEventDescriptor(name: "UserPromptSubmit", templates: [.plain]),
@@ -516,7 +506,6 @@ enum ClientProfileRegistry {
             bridgeSource: "claude",
             bridgeExtraArguments: ["--client-kind", "qoder"],
             defaultEnabled: true,
-            installsClaudePythonScript: false,
             brand: .qoder,
             events: [
                 HookInstallEventDescriptor(name: "UserPromptSubmit", templates: [.plain]),
@@ -542,7 +531,6 @@ enum ClientProfileRegistry {
                 "--client-name", "QoderWork"
             ],
             defaultEnabled: true,
-            installsClaudePythonScript: false,
             brand: .qoder,
             events: [
                 HookInstallEventDescriptor(name: "UserPromptSubmit", templates: [.plain]),
@@ -567,7 +555,6 @@ enum ClientProfileRegistry {
             bridgeSource: "copilot",
             bridgeExtraArguments: [],
             defaultEnabled: false,
-            installsClaudePythonScript: false,
             brand: .copilot,
             events: [
                 HookInstallEventDescriptor(name: "sessionStart", templates: [.matcher("*")]),
@@ -598,7 +585,6 @@ enum ClientProfileRegistry {
                 "--thread-source", "opencode-plugin"
             ],
             defaultEnabled: false,
-            installsClaudePythonScript: false,
             brand: .opencode,
             events: []
         ),

@@ -763,41 +763,15 @@ struct NotchView: View {
     private func handleCompletionNotificationChange(_ instances: [SessionState]) {
         synchronizeCompletionNotifications(with: instances)
 
-        let currentPhases = Dictionary(
+        // Completion should stay as a lightweight status cue in the closed notch
+        // instead of auto-opening a read-only notification panel that steals focus.
+        if activeCompletionNotification != nil || !completionNotificationQueue.isEmpty {
+            clearCompletionNotifications(keepPanelOpen: true)
+        }
+
+        previousCompletionNotificationPhases = Dictionary(
             uniqueKeysWithValues: instances.map { ($0.stableId, $0.phase) }
         )
-
-        // Completion popups are one-shot ambient notifications. If the notch is already
-        // expanded for some other reason, drop new completion popups instead of queueing
-        // them to appear later on top of the normal expanded UI.
-        if viewModel.status == .opened && activeCompletionNotification == nil {
-            previousCompletionNotificationPhases = currentPhases
-            completionNotificationQueue.removeAll()
-            return
-        }
-
-        let newNotifications = instances
-            .compactMap { session -> SessionCompletionNotification? in
-                let previousPhase = previousCompletionNotificationPhases[session.stableId]
-
-                if shouldQueueCompletedNotification(for: session, previousPhase: previousPhase) {
-                    return SessionCompletionNotification(session: session, kind: .completed)
-                }
-
-                if shouldQueueEndedNotification(for: session, previousPhase: previousPhase) {
-                    return SessionCompletionNotification(session: session, kind: .ended)
-                }
-
-                return nil
-            }
-            .sorted { $0.session.lastActivity < $1.session.lastActivity }
-
-        for notification in newNotifications {
-            enqueueCompletionNotification(notification)
-        }
-
-        previousCompletionNotificationPhases = currentPhases
-        maybePresentNextCompletionNotification()
     }
 
     private func shouldQueueCompletedNotification(
@@ -1004,8 +978,13 @@ struct NotchView: View {
         let errorSessions = instances.filter { session in
             session.completedErrorToolIDs.contains { errorDeltaIds.contains("\(session.sessionId):\($0)") }
         }
+        let completionDeltaIds = newCompletedIds.subtracting(previousCompletionSoundIds)
+        let newlyCompletedSessions = completedSessions.filter { session in
+            completionDeltaIds.contains(session.stableId)
+        }
 
         let isNewAttention = !newAttentionIds.subtracting(previousAttentionSoundIds).isEmpty
+        let isNewCompletion = !completionDeltaIds.isEmpty
         let isNewTaskError = !errorDeltaIds.isEmpty
         let isNewResourceLimit = !newResourceLimitIds.subtracting(previousResourceLimitIds).isEmpty
 
@@ -1015,6 +994,8 @@ struct NotchView: View {
             playEventSoundIfNeeded(.resourceLimit, sessions: resourceLimitedSessions)
         } else if isNewAttention {
             playEventSoundIfNeeded(.attentionRequired, sessions: attentionSessions)
+        } else if isNewCompletion {
+            playEventSoundIfNeeded(.taskCompleted, sessions: newlyCompletedSessions)
         } else if !newProcessingIds.subtracting(previousProcessingIds).isEmpty {
             playEventSoundIfNeeded(.processingStarted, sessions: processingSessions)
         }

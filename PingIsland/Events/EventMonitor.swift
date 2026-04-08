@@ -7,6 +7,43 @@
 
 import AppKit
 
+enum MouseEventReplay {
+    private static let marker: Int64 = 0x50494E47
+
+    static func isReplayed(_ event: NSEvent) -> Bool {
+        event.cgEvent?.getIntegerValueField(.eventSourceUserData) == marker
+    }
+
+    static func mark(_ event: CGEvent) {
+        event.setIntegerValueField(.eventSourceUserData, value: marker)
+    }
+
+    static func repostLocation(for event: NSEvent, fallbackScreenLocation: NSPoint? = nil) -> CGPoint {
+        if let cgLocation = event.cgEvent?.location {
+            return cgLocation
+        }
+
+        guard let fallbackScreenLocation else {
+            return .zero
+        }
+
+        let screenBounds = NSScreen.screens
+            .map(\.frame)
+            .reduce(CGRect.null) { partial, frame in
+                partial.union(frame)
+            }
+
+        guard !screenBounds.isNull else {
+            return CGPoint(x: fallbackScreenLocation.x, y: fallbackScreenLocation.y)
+        }
+
+        return CGPoint(
+            x: fallbackScreenLocation.x,
+            y: screenBounds.maxY - fallbackScreenLocation.y
+        )
+    }
+}
+
 class EventMonitor {
     private var globalMonitor: Any?
     private var localMonitor: Any?

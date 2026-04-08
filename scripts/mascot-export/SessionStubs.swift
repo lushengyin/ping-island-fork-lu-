@@ -53,3 +53,9 @@ struct SessionState {
     var clientInfo: SessionClientInfo = .init()
     var provider: SessionProvider = .claude
 }
+
+enum AppLocalization {
+    static func format(_ format: String, _ arguments: CVarArg...) -> String {
+        String(format: format, arguments: arguments)
+    }
+}

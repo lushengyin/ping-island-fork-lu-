@@ -23,8 +23,8 @@ This file is a routing layer for coding agents working in this repo. Keep it sho
 - Session association cache: `PingIsland/Services/State/SessionAssociationStore.swift`
 - Session bridge for UI: `PingIsland/Services/Session/SessionMonitor.swift`
 - Notch state and layout: `PingIsland/Core/NotchViewModel.swift`, `PingIsland/UI/Views/NotchView.swift`
-- Claude hook ingress: `PingIsland/Resources/island-state.py`, `PingIsland/Services/Hooks/HookInstaller.swift`, `PingIsland/Services/Hooks/HookSocketServer.swift`
-  - `island-state.py` is responsible for terminal, tmux, SSH-remote, and IDE terminal context capture before envelopes hit Swift code
+- Claude hook ingress: `Prototype/Sources/IslandBridge/`, `PingIsland/Services/Hooks/HookInstaller.swift`, `PingIsland/Services/Hooks/HookSocketServer.swift`
+  - `PingIslandBridge` is the unified Claude/Codex hook entrypoint and is responsible for terminal, tmux, SSH-remote, and IDE terminal context capture before envelopes hit Swift code
 - Codex ingress: `PingIsland/Services/Codex/`, `PingIsland/UI/Views/CodexSessionView.swift`
   - Hook-less fallback parsing for Codex sessions lives in `PingIsland/Services/Codex/CodexRolloutParser.swift`
 - Terminal and focus control: `PingIsland/Services/Tmux/`, `PingIsland/Services/Window/`, `PingIsland/Utilities/TerminalVisibilityDetector.swift`
@@ -55,7 +55,7 @@ This file is a routing layer for coding agents working in this repo. Keep it sho
 ## Change Routing
 
 - If you change hook payload shape or hook event semantics, update these together:
-  - `PingIsland/Resources/island-state.py`
+  - `Prototype/Sources/IslandBridge/`
   - `PingIsland/Services/Hooks/HookSocketServer.swift`
   - `PingIsland/Models/SessionEvent.swift`
   - `PingIsland/Services/State/SessionStore.swift`

@@ -1,4 +1,5 @@
 import Foundation
+import Darwin
 
 public enum HookPayloadMapper {
     private static let questionToolNames: Set<String> = [
@@ -17,7 +18,7 @@ public enum HookPayloadMapper {
         let eventType = detectEventType(arguments: arguments, payload: payload)
         let terminalContext = makeTerminalContext(environment: environment, payload: payload)
         let sessionKey = detectSessionKey(payload: payload, environment: environment, provider: source)
-        let metadata = mergedMetadata(arguments: arguments, payload: payload)
+        let metadata = mergedMetadata(arguments: arguments, payload: payload, terminalContext: terminalContext)
         let clientKind = normalizedClientKind(from: metadata)
         let intervention = detectIntervention(
             provider: source,
@@ -358,23 +359,35 @@ public enum HookPayloadMapper {
 
     private static func makeTerminalContext(environment: [String: String], payload: [String: Any]) -> TerminalContext {
         let terminalProgram = environment["TERM_PROGRAM"]
-        let inferredBundleID = inferredTerminalBundleID(for: terminalProgram)
+        let ideContext = detectIDEContext(environment: environment)
+        let remoteContext = detectRemoteContext(environment: environment)
+        let inferredBundleID = inferredTerminalBundleID(
+            for: terminalProgram,
+            fallbackIDEBundleID: ideContext.bundleID
+        )
 
         return TerminalContext(
             terminalProgram: terminalProgram,
             terminalBundleID: environment["__CFBundleIdentifier"]
                 ?? payload["terminalBundleID"] as? String
                 ?? inferredBundleID,
+            ideName: ideContext.name,
+            ideBundleID: ideContext.bundleID,
             iTermSessionID: environment["ITERM_SESSION_ID"],
             terminalSessionID: environment["TERM_SESSION_ID"],
             tty: environment["TTY"],
             currentDirectory: detectCWD(payload: payload, environment: environment),
+            transport: remoteContext.transport,
+            remoteHost: remoteContext.remoteHost,
             tmuxSession: environment["TMUX"],
             tmuxPane: environment["TMUX_PANE"]
         )
     }
 
-    private static func inferredTerminalBundleID(for program: String?) -> String? {
+    private static func inferredTerminalBundleID(
+        for program: String?,
+        fallbackIDEBundleID: String?
+    ) -> String? {
         let normalizedProgram = program?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
@@ -399,8 +412,74 @@ public enum HookPayloadMapper {
         case "codex":
             return "com.openai.codex"
         default:
-            return nil
+            return fallbackIDEBundleID
         }
+    }
+
+    private static func detectIDEContext(environment: [String: String]) -> (name: String?, bundleID: String?) {
+        let terminalProgram = (environment["TERM_PROGRAM"] ?? "").lowercased()
+        let hintKeys = [
+            "TERM_PROGRAM",
+            "TERM_PROGRAM_VERSION",
+            "VSCODE_GIT_IPC_HANDLE",
+            "VSCODE_IPC_HOOK_CLI",
+            "VSCODE_GIT_ASKPASS_MAIN",
+            "VSCODE_CWD",
+            "CURSOR_TRACE_ID",
+            "CURSOR_AGENT",
+            "CURSOR_GIT_ASKPASS_MAIN",
+            "WINDSURF_TRACE_ID",
+            "TRAE_TRACE_ID",
+            "TRAE_AGENT",
+            "CODEBUDDY_TRACE_ID",
+            "CODEBUDDY_AGENT",
+            "ZED_CHANNEL",
+        ]
+        let hints = hintKeys
+            .compactMap { environment[$0]?.lowercased() }
+            .joined(separator: " ")
+
+        if hints.contains("cursor") || environment.keys.contains(where: { $0.hasPrefix("CURSOR_") }) {
+            return ("Cursor", "com.todesktop.230313mzl4w4u92")
+        }
+        if hints.contains("windsurf") || environment.keys.contains(where: { $0.hasPrefix("WINDSURF_") }) {
+            return ("Windsurf", "com.exafunction.windsurf")
+        }
+        if hints.contains("trae") || environment.keys.contains(where: { $0.hasPrefix("TRAE_") }) {
+            return ("Trae", "com.trae.app")
+        }
+        if hints.contains("codebuddy") || environment.keys.contains(where: { $0.hasPrefix("CODEBUDDY_") }) {
+            return ("CodeBuddy", "com.tencent.codebuddy")
+        }
+        if hints.contains("zed") || environment.keys.contains(where: { $0.hasPrefix("ZED_") }) {
+            return ("Zed", "dev.zed.Zed")
+        }
+        if terminalProgram == "vscode" || environment.keys.contains(where: { $0.hasPrefix("VSCODE_") }) {
+            return ("VS Code", "com.microsoft.VSCode")
+        }
+
+        return (nil, nil)
+    }
+
+    private static func detectRemoteContext(environment: [String: String]) -> (transport: String?, remoteHost: String?) {
+        let authority = environment["VSCODE_CLI_REMOTE_AUTHORITY"]
+            ?? environment["VSCODE_REMOTE_AUTHORITY"]
+            ?? environment["REMOTE_CONTAINERS_IPC"]
+        let sshConnection = environment["SSH_CONNECTION"] ?? environment["SSH_CLIENT"]
+
+        if let authority, authority.contains("ssh-remote+") {
+            return ("ssh-remote", authority.components(separatedBy: "ssh-remote+").last.flatMap(nonEmpty))
+        }
+
+        if let sshConnection {
+            let parts = sshConnection.split(separator: " ").map(String.init)
+            if parts.count >= 3 {
+                return ("ssh", nonEmpty(parts[2]))
+            }
+            return ("ssh", nonEmpty(environment["SSH_TTY"]))
+        }
+
+        return (nil, nil)
     }
 
     private static func detectIntervention(
@@ -514,7 +593,11 @@ public enum HookPayloadMapper {
         )
     }
 
-    private static func mergedMetadata(arguments: [String], payload: [String: Any]) -> [String: String] {
+    private static func mergedMetadata(
+        arguments: [String],
+        payload: [String: Any],
+        terminalContext: TerminalContext
+    ) -> [String: String] {
         var metadata = flattenMetadata(payload: payload)
         if let toolInput = payload["tool_input"] as? [String: Any],
            JSONSerialization.isValidJSONObject(toolInput),
@@ -522,10 +605,48 @@ public enum HookPayloadMapper {
            let json = String(data: data, encoding: .utf8) {
             metadata["tool_input_json"] = json.replacingOccurrences(of: "\\/", with: "/")
         }
+        if let terminalBundleID = nonEmpty(terminalContext.terminalBundleID), metadata["terminal_bundle_id"] == nil {
+            metadata["terminal_bundle_id"] = terminalBundleID
+        }
+        if let terminalProgram = nonEmpty(terminalContext.terminalProgram), metadata["terminal_program"] == nil {
+            metadata["terminal_program"] = terminalProgram
+        }
+        if let ideName = nonEmpty(terminalContext.ideName), metadata["client_originator"] == nil {
+            metadata["client_originator"] = ideName
+        }
+        if let transport = nonEmpty(terminalContext.transport), metadata["connection_transport"] == nil {
+            metadata["connection_transport"] = transport
+        }
+        if let remoteHost = nonEmpty(terminalContext.remoteHost), metadata["remote_host"] == nil {
+            metadata["remote_host"] = remoteHost
+        }
+        if let processName = detectedSourceProcessName(), metadata["source_process_name"] == nil {
+            metadata["source_process_name"] = processName
+        }
         for (key, value) in argumentMetadata(arguments: arguments) where metadata[key] == nil {
             metadata[key] = value
         }
         return metadata
+    }
+
+    private static func detectedSourceProcessName() -> String? {
+        let process = Process()
+        let output = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/ps")
+        process.arguments = ["-p", String(getppid()), "-o", "comm="]
+        process.standardOutput = output
+        process.standardError = Pipe()
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+            let data = output.fileHandleForReading.readDataToEndOfFile()
+            return nonEmpty(String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines))
+        } catch {
+            return nil
+        }
     }
 
     private static func argumentMetadata(arguments: [String]) -> [String: String] {
@@ -657,6 +778,13 @@ public enum HookPayloadMapper {
 
     private static func firstNonEmptyString(_ values: Any?...) -> String? {
         values.compactMap { summarizeValue($0) }.first
+    }
+
+    private static func nonEmpty(_ value: String?) -> String? {
+        guard let value = value?.trimmingCharacters(in: .whitespacesAndNewlines), !value.isEmpty else {
+            return nil
+        }
+        return value
     }
 
     private static func normalizedClientKind(from metadata: [String: String]) -> String? {

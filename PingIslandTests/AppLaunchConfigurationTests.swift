@@ -45,4 +45,44 @@ final class AppLaunchConfigurationTests: XCTestCase {
         XCTAssertFalse(configuration.shouldPresentSettingsWindowOnLaunch)
         XCTAssertEqual(configuration.activationPolicy, .accessory)
     }
+
+    func testMouseEventReplayMarkerDistinguishesSyntheticEvents() {
+        let location = CGPoint(x: 120, y: 48)
+        let originalEvent = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .leftMouseDown,
+            mouseCursorPosition: location,
+            mouseButton: .left
+        )
+        let replayedEvent = CGEvent(
+            mouseEventSource: nil,
+            mouseType: .leftMouseDown,
+            mouseCursorPosition: location,
+            mouseButton: .left
+        )
+
+        XCTAssertNotNil(originalEvent)
+        XCTAssertNotNil(replayedEvent)
+
+        guard
+            let originalEvent,
+            let replayedEvent,
+            let originalNSEvent = NSEvent(cgEvent: originalEvent),
+            let replayedNSEvent = NSEvent(cgEvent: replayedEvent)
+        else {
+            return XCTFail("Expected to create mouse events for replay marker tests")
+        }
+
+        XCTAssertFalse(MouseEventReplay.isReplayed(originalNSEvent))
+
+        MouseEventReplay.mark(replayedEvent)
+
+        guard let markedReplayEvent = NSEvent(cgEvent: replayedEvent) else {
+            return XCTFail("Expected to wrap marked replay event")
+        }
+
+        XCTAssertTrue(MouseEventReplay.isReplayed(markedReplayEvent))
+        XCTAssertFalse(MouseEventReplay.isReplayed(originalNSEvent))
+        XCTAssertEqual(replayedNSEvent.type, .leftMouseDown)
+    }
 }

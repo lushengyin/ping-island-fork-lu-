@@ -21,8 +21,6 @@
   <img src="https://img.shields.io/badge/License-Apache%202.0-4F46E5?style=flat-square" alt="Apache 2.0 许可证">
 </p>
 
----
-
 <p align="center">
   <img src="docs/images/notch-panel.png" width="960" alt="Ping Island 预览图">
 </p>
@@ -65,15 +63,13 @@ Hook / app-server 事件
 
 Ping Island 聚焦的不是“多一个状态面板”，而是把真正会打断编码节奏的人机协作时刻，用更原生、更克制的 macOS 方式接住。
 
-| 先感知，再打扰 | 原地处理，不切屏 | 精准跳回现场 |
-| --- | --- | --- |
-| 平时保持紧凑，只有当会话需要审批、补充输入或查看结果时，才展开成灵动岛风格的交互界面；刘海屏和外接显示器都能正常工作。 | 直接在刘海界面里批准工具调用、拒绝请求、回答追问，不需要来回翻终端标签页。 | 尽量把你准确带回对应的 iTerm2、Ghostty、Terminal.app、tmux pane，或 VS Code 兼容 IDE 窗口。 |
-| 多客户端统一收口 | 集成安装可托管 | 不止 hooks 的 Codex 支持 |
-| 用一个菜单栏入口持续跟踪 Claude Code、Codex、Gemini CLI、OpenCode、Cursor、Qoder、CodeBuddy、GitHub Copilot 以及兼容 hooks 的会话。 | 可在设置页里安装或修复 Claude、Codex、Gemini CLI、OpenCode、Qoder、CodeBuddy、Copilot 等 hooks / 插件集成，也覆盖 GitHub 风格的 `.github/hooks/*.json` 模板。 | 同时覆盖 Codex CLI hooks 与 Codex app-server 线程同步，并在需要时用 rollout 解析做会话上下文兜底。 |
-
-补齐体验完成度的能力还包括：
-
-- **客户端宠物系统** - 每类客户端有独立动画宠物，并支持按客户端覆盖与空闲 / 运行 / 警告状态切换。
+- **先感知，再打扰** - 平时保持紧凑，只有当会话需要审批、补充输入或查看结果时，才展开成灵动岛风格的交互界面；刘海屏和外接显示器都能正常工作。
+- **原地处理，不切屏** - 直接在刘海界面里批准工具调用、拒绝请求、回答追问，不需要来回翻终端标签页。
+- **精准跳回现场** - 尽量把你准确带回对应的 iTerm2、Ghostty、Terminal.app、tmux pane，或 VS Code 兼容 IDE 窗口。
+- **多客户端统一收口** - 用一个菜单栏入口持续跟踪 Claude Code、Codex、Gemini CLI、OpenCode、Cursor、Qoder、CodeBuddy、GitHub Copilot 以及兼容 hooks 的会话。
+- **集成安装可托管** - 可在设置页里安装或修复 Claude、Codex、Gemini CLI、OpenCode、Qoder、CodeBuddy、Copilot 等 hooks / 插件集成，也覆盖 GitHub 风格的 `.github/hooks/*.json` 模板。
+- **不止 hooks 的 Codex 支持** - 同时覆盖 Codex CLI hooks 与 Codex app-server 线程同步，并在需要时用 rollout 解析做会话上下文兜底。
+- **为你的 Agent 定制专属宠物形象** - 内置 8 款宠物，可按客户端单独切换，并根据空闲 / 运行 / 警告状态播放不同动作。
 - **声音包与事件提示音** - 既能直接使用内置提示音，也能导入自定义 sound pack。
 - **Sparkle 自动更新** - 支持应用内更新检查与 Markdown 版本说明。
 - **诊断包导出** - 一键导出最近日志和配置，方便排查集成问题。
@@ -180,7 +176,7 @@ Claude / Codex / Gemini CLI / OpenCode / Cursor / Qoder / CodeBuddy / Copilot / 
 
 几个实现细节：
 
-- Claude 家族工具主要通过托管 hook 文件和 `PingIsland/Resources/island-state.py` 接入。
+- Claude 家族工具主要通过托管 hook 文件和内嵌的 `PingIslandBridge` 启动器接入。
 - Codex 会话既可以来自 hooks，也可以来自 `codex app-server` websocket 实时同步。
 - Gemini CLI hooks 会安装到 `~/.gemini/settings.json`，其中工具 matcher 要使用 Gemini 的正则语法。
 - OpenCode 使用生成到 `~/.config/opencode/plugins/` 下的插件文件接入。

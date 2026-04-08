@@ -224,7 +224,7 @@
 "Terminal" = "终端";
 
 "No recent session" = "暂无最近会话";
-"Hover here to preview your most recent Claude and Codex threads." = "把鼠标移到这里，预览最近的 Claude 和 Codex 线程。";
+"Hover here to preview your most recent Agent threads." = "把鼠标移到这里，预览最近的 Agent 会话。";
 "当前操作" = "当前操作";
 "批准后会继续执行当前会话。" = "批准后会继续执行当前会话。";
 "%@ 请求批准" = "%@ 请求批准";

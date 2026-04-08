@@ -68,6 +68,42 @@ func mapsWezTermTerminalContextFromEnvironment() throws {
 }
 
 @Test
+func mapsClaudeIDEAndRemoteContextFromEnvironment() throws {
+    let payload = """
+    {
+      "hook_event_name": "UserPromptSubmit",
+      "session_id": "cursor-remote-1"
+    }
+    """.data(using: .utf8)!
+
+    let envelope = HookPayloadMapper.makeEnvelope(
+        source: .claude,
+        arguments: ["island-bridge", "--source", "claude"],
+        environment: [
+            "TERM_PROGRAM": "vscode",
+            "CURSOR_TRACE_ID": "trace-1",
+            "VSCODE_REMOTE_AUTHORITY": "ssh-remote+devbox",
+            "PWD": "/tmp/demo",
+            "TMUX": "/tmp/tmux-100/default,123,0",
+            "TMUX_PANE": "%3"
+        ],
+        stdinData: payload
+    )
+
+    #expect(envelope.terminalContext.terminalProgram == "vscode")
+    #expect(envelope.terminalContext.terminalBundleID == "com.todesktop.230313mzl4w4u92")
+    #expect(envelope.terminalContext.ideName == "Cursor")
+    #expect(envelope.terminalContext.ideBundleID == "com.todesktop.230313mzl4w4u92")
+    #expect(envelope.terminalContext.transport == "ssh-remote")
+    #expect(envelope.terminalContext.remoteHost == "devbox")
+    #expect(envelope.terminalContext.tmuxSession == "/tmp/tmux-100/default,123,0")
+    #expect(envelope.terminalContext.tmuxPane == "%3")
+    #expect(envelope.metadata["client_originator"] == "Cursor")
+    #expect(envelope.metadata["connection_transport"] == "ssh-remote")
+    #expect(envelope.metadata["remote_host"] == "devbox")
+}
+
+@Test
 func mapsQuestionEventOptions() throws {
     let payload = """
     {

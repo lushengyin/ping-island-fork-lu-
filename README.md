@@ -21,8 +21,6 @@
   <img src="https://img.shields.io/badge/License-Apache%202.0-4F46E5?style=flat-square" alt="Apache 2.0 license">
 </p>
 
----
-
 <p align="center">
   <img src="docs/images/notch-panel.png" width="480" alt="Ping Island preview">
 </p>
@@ -66,15 +64,13 @@ Hook / app-server event
 
 Ping Island is designed around the human-in-the-loop moments that actually break coding flow, then wraps them in a native macOS presentation that feels crisp instead of noisy.
 
-| Signal First | Act In Place | Jump Back Precisely |
-| --- | --- | --- |
-| Stay compact until a session needs approval, input, or review, then expand into a Dynamic Island-style control surface that works on notch Macs and external displays. | Approve tools, deny requests, and answer follow-up prompts directly from the notch instead of digging through terminal tabs. | Return to the matching iTerm2, Ghostty, Terminal.app, tmux pane, or VS Code-compatible IDE window with the right session in context. |
-| Multi-Client Coverage | Managed Integrations | Codex Beyond Hooks |
-| Track Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Qoder, CodeBuddy, GitHub Copilot, and compatible hook-driven sessions from one menu bar app. | Install or repair Claude, Codex, Gemini CLI, OpenCode, Qoder, CodeBuddy, Copilot, and related hook/plugin setups from Settings, including GitHub-style `.github/hooks/*.json` templates. | Support Codex CLI hooks plus live Codex app-server thread sync, with rollout parsing fallback when extra session context is needed. |
-
-Additional polish that rounds out the workflow:
-
-- **Client mascot system** - animated client mascots with per-client overrides and idle / working / warning states.
+- **Signal First** - Stay compact until a session needs approval, input, or review, then expand into a Dynamic Island-style control surface that works on notch Macs and external displays.
+- **Act In Place** - Approve tools, deny requests, and answer follow-up prompts directly from the notch instead of digging through terminal tabs.
+- **Jump Back Precisely** - Return to the matching iTerm2, Ghostty, Terminal.app, tmux pane, or VS Code-compatible IDE window with the right session in context.
+- **Multi-Client Coverage** - Track Claude Code, Codex, Gemini CLI, OpenCode, Cursor, Qoder, CodeBuddy, GitHub Copilot, and compatible hook-driven sessions from one menu bar app.
+- **Managed Integrations** - Install or repair Claude, Codex, Gemini CLI, OpenCode, Qoder, CodeBuddy, Copilot, and related hook/plugin setups from Settings, including GitHub-style `.github/hooks/*.json` templates.
+- **Codex Beyond Hooks** - Support Codex CLI hooks plus live Codex app-server thread sync, with rollout parsing fallback when extra session context is needed.
+- **Customize a dedicated mascot for your agent** - Pick from 8 built-in mascots, override them per client, and let them switch motion based on idle / working / warning states.
 - **Sound packs and event audio** - built-in event sounds plus support for importing custom sound packs.
 - **Sparkle updates and markdown release notes** - in-app update checks and version notes sourced from the release pipeline.
 - **Diagnostics export** - bundle recent logs and config into a zip when you need to debug a broken integration.
@@ -183,7 +179,7 @@ Claude / Codex / Gemini CLI / OpenCode / Cursor / Qoder / CodeBuddy / Copilot / 
 
 Implementation details worth knowing:
 
-- Claude-family tools enter through managed hook files plus `PingIsland/Resources/island-state.py`.
+- Claude-family tools enter through managed hook files plus the embedded `PingIslandBridge` launcher.
 - Codex sessions can come from hook events or the live `codex app-server` websocket monitor.
 - Gemini CLI hooks are installed into `~/.gemini/settings.json`; tool matchers use Gemini's regex-based hook matcher syntax.
 - OpenCode is wired through a generated plugin file under `~/.config/opencode/plugins/`.

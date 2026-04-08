@@ -42,29 +42,41 @@ public struct SessionStatus: Codable, Equatable, Sendable {
 public struct TerminalContext: Codable, Equatable, Hashable, Sendable {
     public var terminalProgram: String?
     public var terminalBundleID: String?
+    public var ideName: String?
+    public var ideBundleID: String?
     public var iTermSessionID: String?
     public var terminalSessionID: String?
     public var tty: String?
     public var currentDirectory: String?
+    public var transport: String?
+    public var remoteHost: String?
     public var tmuxSession: String?
     public var tmuxPane: String?
 
     public init(
         terminalProgram: String? = nil,
         terminalBundleID: String? = nil,
+        ideName: String? = nil,
+        ideBundleID: String? = nil,
         iTermSessionID: String? = nil,
         terminalSessionID: String? = nil,
         tty: String? = nil,
         currentDirectory: String? = nil,
+        transport: String? = nil,
+        remoteHost: String? = nil,
         tmuxSession: String? = nil,
         tmuxPane: String? = nil
     ) {
         self.terminalProgram = terminalProgram
         self.terminalBundleID = terminalBundleID
+        self.ideName = ideName
+        self.ideBundleID = ideBundleID
         self.iTermSessionID = iTermSessionID
         self.terminalSessionID = terminalSessionID
         self.tty = tty
         self.currentDirectory = currentDirectory
+        self.transport = transport
+        self.remoteHost = remoteHost
         self.tmuxSession = tmuxSession
         self.tmuxPane = tmuxPane
     }

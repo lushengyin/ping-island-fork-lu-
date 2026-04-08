@@ -771,7 +771,7 @@ struct HoverEmptyPreviewView: View {
                 .font(.system(size: 15, weight: .semibold))
                 .foregroundColor(.white)
 
-            Text("Hover here to preview your most recent Claude and Codex threads.")
+            Text("Hover here to preview your most recent Agent threads.")
                 .font(.system(size: 12, weight: .medium))
                 .foregroundColor(.white.opacity(0.56))
         }
