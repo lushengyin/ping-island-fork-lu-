@@ -7,6 +7,7 @@ The repo also ships `.github/workflows/release-packages.yml` for GitHub-hosted p
 - It builds the unsigned release app on `macos-15`.
 - It runs `./scripts/package-unsigned.sh` to generate both `.dmg` and `.zip`.
 - It publishes those assets to the matching GitHub Release for a `v*` tag.
+- It is safe to rerun after a partially failed publish; the workflow reuses the existing tag release, re-uploads assets with `--clobber`, and then updates the final draft / prerelease state.
 - It does not notarize, staple, or generate Sparkle appcast assets.
 
 Use that workflow when you want downloadable GitHub Release artifacts without the local signing / notarization toolchain. Use the flow below when you need the notarized Sparkle release path.

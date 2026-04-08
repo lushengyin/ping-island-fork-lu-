@@ -206,7 +206,13 @@ actor SessionStore {
             session.latestHookMessage = hookMessage
         }
 
-        if event.status == "ended" {
+        let shouldPreserveEndedStopForAnsweredQuestion =
+            event.status == "ended"
+            && event.event == "Stop"
+            && session.intervention?.awaitsExternalContinuation == true
+            && session.clientInfo.prefersAnsweredQuestionFollowupAction
+
+        if event.status == "ended", !shouldPreserveEndedStopForAnsweredQuestion {
             markSessionEnded(&session)
             sessions[sessionId] = session
             publishState()
@@ -216,7 +222,9 @@ actor SessionStore {
             return
         }
 
-        let newPhase = event.determinePhase()
+        let newPhase: SessionPhase = shouldPreserveEndedStopForAnsweredQuestion
+            ? .waitingForInput
+            : event.determinePhase()
         let intervention = event.intervention
         let shouldPreservePendingApproval = shouldPreservePendingApproval(for: event, session: session)
 

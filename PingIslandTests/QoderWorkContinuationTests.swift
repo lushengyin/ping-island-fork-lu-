@@ -377,6 +377,57 @@ final class QoderWorkContinuationTests: XCTestCase {
         await store.process(.sessionArchived(sessionId: sessionId))
     }
 
+    func testCodeBuddyContinuationDoesNotClearOnStopEndedHook() async {
+        let sessionId = "codebuddy-stop-\(UUID().uuidString)"
+        let store = SessionStore.shared
+
+        await store.process(.hookReceived(
+            makeQuestionEvent(
+                sessionId: sessionId,
+                profileID: "codebuddy",
+                name: "CodeBuddy",
+                bundleIdentifier: "com.tencent.codebuddy"
+            )
+        ))
+        await store.process(
+            .interventionResolved(
+                sessionId: sessionId,
+                nextPhase: .processing,
+                submittedAnswers: ["topic": ["A 方案"]]
+            )
+        )
+
+        await store.process(.hookReceived(
+            HookEvent(
+                sessionId: sessionId,
+                cwd: "/tmp/project",
+                event: "Stop",
+                status: "ended",
+                provider: .claude,
+                clientInfo: SessionClientInfo(
+                    kind: .claudeCode,
+                    profileID: "codebuddy",
+                    name: "CodeBuddy",
+                    bundleIdentifier: "com.tencent.codebuddy"
+                ),
+                pid: nil,
+                tty: nil,
+                tool: nil,
+                toolInput: nil,
+                toolUseId: nil,
+                notificationType: nil,
+                message: nil
+            )
+        ))
+
+        let session = await store.session(for: sessionId)
+        XCTAssertEqual(session?.phase, .waitingForInput)
+        XCTAssertTrue(session?.intervention?.awaitsExternalContinuation ?? false)
+        XCTAssertEqual(session?.intervention?.submittedAnswers["topic"], ["A 方案"])
+
+        await store.process(.sessionArchived(sessionId: sessionId))
+    }
+
     func testWorkBuddyContinuationDoesNotClearOnPostToolUseHook() async {
         let sessionId = "workbuddy-posttool-\(UUID().uuidString)"
         let store = SessionStore.shared
