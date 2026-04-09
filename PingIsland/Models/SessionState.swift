@@ -13,6 +13,7 @@ import Foundation
 struct SessionState: Equatable, Identifiable, Sendable {
     private nonisolated static let minimalCompactDelay: TimeInterval = 10 * 60
     private nonisolated static let autoArchiveDelay: TimeInterval = 30 * 60
+    private nonisolated static let endedSessionArchiveDelay: TimeInterval = 3
     private nonisolated static let codexContinuationPlaceholderHideWindow: TimeInterval = 10 * 60
 
     // MARK: - Identity
@@ -494,7 +495,8 @@ struct SessionState: Equatable, Identifiable, Sendable {
         if needsManualAttention {
             return false
         }
-        return Date().timeIntervalSince(lastActivity) >= Self.autoArchiveDelay
+        let delay = phase == .ended ? Self.endedSessionArchiveDelay : Self.autoArchiveDelay
+        return Date().timeIntervalSince(lastActivity) >= delay
     }
 
     /// Older background sessions collapse to a header-only presentation in compact surfaces.
