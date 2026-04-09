@@ -663,6 +663,58 @@ final class SessionStateTests: XCTestCase {
         XCTAssertEqual(profile?.showsInSettings, false)
     }
 
+    func testIDEExtensionInstallerPrefersInstalledAppDataFolderName() throws {
+        let appURL = try makeFakeVSCodeCompatibleApp(dataFolderName: ".resolved-codebuddy")
+        let profile = try XCTUnwrap(ClientProfileRegistry.ideExtensionProfile(id: "codebuddy-extension"))
+
+        let rootURLs = IDEExtensionInstaller.candidateExtensionRootURLs(
+            for: profile,
+            resolvedInstalledAppURLs: [appURL]
+        )
+
+        let expectedRootURL = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent(".resolved-codebuddy", isDirectory: true)
+            .appendingPathComponent("extensions", isDirectory: true)
+
+        XCTAssertEqual(rootURLs.first?.standardizedFileURL.path, expectedRootURL.standardizedFileURL.path)
+        XCTAssertTrue(
+            rootURLs.contains { rootURL in
+                rootURL.standardizedFileURL.path == profile.primaryExtensionRootURL.standardizedFileURL.path
+            }
+        )
+    }
+
+    func testCodeBuddyAndQoderProfilesDeclareExtensionRegistries() throws {
+        let codeBuddyProfile = try XCTUnwrap(ClientProfileRegistry.ideExtensionProfile(id: "codebuddy-extension"))
+        let qoderProfile = try XCTUnwrap(ClientProfileRegistry.ideExtensionProfile(id: "qoder-extension"))
+
+        XCTAssertEqual(
+            codeBuddyProfile.extensionRegistryURLs.map(\.path),
+            [
+                FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".codebuddy", isDirectory: true)
+                    .appendingPathComponent("extensions", isDirectory: true)
+                    .appendingPathComponent("extensions.json", isDirectory: false)
+                    .path,
+                FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".codebuddycn", isDirectory: true)
+                    .appendingPathComponent("extensions", isDirectory: true)
+                    .appendingPathComponent("extensions.json", isDirectory: false)
+                    .path
+            ]
+        )
+        XCTAssertEqual(
+            qoderProfile.extensionRegistryURLs.map(\.path),
+            [
+                FileManager.default.homeDirectoryForCurrentUser
+                    .appendingPathComponent(".qoder", isDirectory: true)
+                    .appendingPathComponent("extensions", isDirectory: true)
+                    .appendingPathComponent("extensions.json", isDirectory: false)
+                    .path
+            ]
+        )
+    }
+
     func testWorkBuddyRuntimeProfileMatchesBundleAndName() {
         let bundleProfile = ClientProfileRegistry.matchRuntimeProfile(
             provider: .claude,
@@ -748,6 +800,33 @@ final class SessionStateTests: XCTestCase {
         XCTAssertEqual(info.lastMessageRole, "assistant")
     }
 
+    private func makeFakeVSCodeCompatibleApp(dataFolderName: String) throws -> URL {
+        let rootURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let appURL = rootURL.appendingPathComponent("FakeIDE.app", isDirectory: true)
+        let productURL = appURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+            .appendingPathComponent("app", isDirectory: true)
+            .appendingPathComponent("product.json", isDirectory: false)
+
+        try FileManager.default.createDirectory(
+            at: productURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        let data = try JSONSerialization.data(
+            withJSONObject: ["dataFolderName": dataFolderName],
+            options: []
+        )
+        try data.write(to: productURL, options: .atomic)
+
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: rootURL)
+        }
+
+        return appURL
+    }
+
     func testConversationParserStripsQoderWorkSystemReminderBlocks() async {
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
@@ -797,16 +876,16 @@ final class SessionStateTests: XCTestCase {
 
     func testGhosttySelectionScriptPrefersStableTerminalIdentifier() {
         let lines = TerminalSessionFocuser.ghosttySelectionScriptLines(
-            terminalSessionIdentifier: "ghostty-terminal-1",
+            terminalSessionIdentifier: "65a2028f-a93c-48e0-b46a-3f4c20c94b81",
             workspacePath: "/tmp/demo"
         )
         let script = lines.joined(separator: "\n")
 
-        XCTAssertTrue(script.contains("set targetTerminalID to \"ghostty-terminal-1\""))
+        XCTAssertTrue(script.contains("set targetTerminalID to \"65A2028F-A93C-48E0-B46A-3F4C20C94B81\""))
         XCTAssertTrue(script.contains("set targetTerminal to first terminal whose id is targetTerminalID"))
         XCTAssertTrue(script.contains("focus targetTerminal"))
 
-        let identifierIndex = try! XCTUnwrap(lines.firstIndex(of: "set targetTerminalID to \"ghostty-terminal-1\""))
+        let identifierIndex = try! XCTUnwrap(lines.firstIndex(of: "set targetTerminalID to \"65A2028F-A93C-48E0-B46A-3F4C20C94B81\""))
         let workspaceIndex = try! XCTUnwrap(lines.firstIndex(of: "set targetPath to \"/tmp/demo\""))
         XCTAssertLessThan(identifierIndex, workspaceIndex)
     }
@@ -821,5 +900,16 @@ final class SessionStateTests: XCTestCase {
         XCTAssertFalse(script.contains("targetTerminalID"))
         XCTAssertTrue(script.contains("set targetPath to \"/tmp/demo\""))
         XCTAssertTrue(script.contains("focus (item 1 of exactMatches)"))
+    }
+
+    func testGhosttySelectionScriptIgnoresNonUUIDTerminalIdentifier() {
+        let lines = TerminalSessionFocuser.ghosttySelectionScriptLines(
+            terminalSessionIdentifier: "ghostty-terminal-1",
+            workspacePath: "/tmp/demo"
+        )
+        let script = lines.joined(separator: "\n")
+
+        XCTAssertFalse(script.contains("targetTerminalID"))
+        XCTAssertTrue(script.contains("set targetPath to \"/tmp/demo\""))
     }
 }

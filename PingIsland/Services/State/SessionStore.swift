@@ -204,6 +204,17 @@ actor SessionStore {
             clientInfo: session.clientInfo,
             sessionId: sessionId
         )
+        if let enrichedGhosttyClientInfo = await enrichedGhosttyClientInfoIfNeeded(
+            current: session.clientInfo,
+            event: event,
+            workspacePath: session.cwd
+        ) {
+            session.clientInfo = normalizedClientInfo(
+                session.clientInfo.merged(with: enrichedGhosttyClientInfo),
+                provider: event.provider,
+                sessionId: sessionId
+            )
+        }
         session.lastActivity = Date()
         if let hookMessage = Self.normalizedHookMessage(event.message) {
             session.latestHookMessage = hookMessage
@@ -2331,6 +2342,41 @@ actor SessionStore {
         }
 
         return runtimeInfo
+    }
+
+    private func enrichedGhosttyClientInfoIfNeeded(
+        current: SessionClientInfo,
+        event: HookEvent,
+        workspacePath: String
+    ) async -> SessionClientInfo? {
+        guard current.terminalBundleIdentifier == "com.mitchellh.ghostty",
+              TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(current.terminalSessionIdentifier) == nil,
+              shouldCaptureFrontmostGhosttyTerminalIdentifier(for: event) else {
+            return nil
+        }
+
+        guard let snapshot = await TerminalSessionFocuser.shared.frontmostGhosttyTerminalSnapshot(),
+              TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(snapshot.terminalSessionIdentifier) != nil,
+              TerminalSessionFocuser.ghosttyWorkingDirectoryMatches(
+                  snapshotWorkingDirectory: snapshot.workingDirectory,
+                  workspacePath: workspacePath
+              ) else {
+            return nil
+        }
+
+        return SessionClientInfo(
+            kind: current.kind,
+            terminalSessionIdentifier: snapshot.terminalSessionIdentifier
+        )
+    }
+
+    private func shouldCaptureFrontmostGhosttyTerminalIdentifier(for event: HookEvent) -> Bool {
+        switch event.event {
+        case "SessionStart", "UserPromptSubmit":
+            return true
+        default:
+            return false
+        }
     }
 
     private func normalizedClientInfo(
