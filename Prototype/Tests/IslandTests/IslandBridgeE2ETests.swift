@@ -30,6 +30,82 @@ func islandBridgeAllowsStateOnlyEventsWhenAppIsUnavailable() throws {
 }
 
 @Test
+func islandBridgeDoesNotWaitForStdinEOFWhenPayloadAlreadyArrived() async throws {
+    let executable = try TestRuntime.executableURL(named: "PingIslandBridge")
+    let process = try RunningProcess(
+        executableURL: executable,
+        arguments: ["--source", "codex"],
+        environment: [
+            "ISLAND_SOCKET_PATH": "/tmp/ping-island-missing-\(UUID().uuidString).sock",
+            "PWD": "/tmp/codex-demo"
+        ],
+        stdin: """
+        {
+          "event": "PostToolUse",
+          "thread_id": "codex-no-eof",
+          "tool_name": "Read"
+        }
+        """,
+        closeStdinOnLaunch: false
+    )
+    defer { process.closeStdin() }
+
+    let clock = ContinuousClock()
+    let deadline = clock.now + .seconds(2)
+    while process.isRunning && clock.now < deadline {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(process.isRunning == false)
+
+    let result = process.waitForExit()
+
+    #expect(result.terminationStatus == 0)
+    #expect(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    #expect(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+}
+
+@Test
+func islandBridgeWaitsForSplitJSONPayloadBeforeContinuing() async throws {
+    let executable = try TestRuntime.executableURL(named: "PingIslandBridge")
+    let process = try RunningProcess(
+        executableURL: executable,
+        arguments: ["--source", "codex"],
+        environment: [
+            "ISLAND_SOCKET_PATH": "/tmp/ping-island-missing-\(UUID().uuidString).sock",
+            "PWD": "/tmp/codex-demo"
+        ],
+        closeStdinOnLaunch: false
+    )
+    defer { process.closeStdin() }
+
+    process.writeToStdin("""
+    {
+      "event": "PostToolUse",
+    """)
+    try await Task.sleep(for: .milliseconds(40))
+    #expect(process.isRunning)
+
+    process.writeToStdin("""
+      "thread_id": "codex-split",
+      "tool_name": "Read"
+    }
+    """)
+
+    let clock = ContinuousClock()
+    let deadline = clock.now + .seconds(2)
+    while process.isRunning && clock.now < deadline {
+        try await Task.sleep(for: .milliseconds(25))
+    }
+    #expect(process.isRunning == false)
+
+    let result = process.waitForExit()
+
+    #expect(result.terminationStatus == 0)
+    #expect(result.stdout.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+    #expect(result.stderr.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+}
+
+@Test
 func islandBridgeRoundTripsApprovalRequestsThroughSocketServer() async throws {
     try await withTemporaryDirectory { directory in
         let recorder = await MainActor.run { SnapshotRecorder() }
