@@ -18,6 +18,7 @@ class SessionMonitor: ObservableObject {
     private var cancellables = Set<AnyCancellable>()
     private var hasStarted = false
     private var allSessions: [SessionState] = []
+    private var pendingEndedArchiveRefresh: DispatchWorkItem?
 
     init() {
         SessionStore.shared.sessionsPublisher
@@ -35,6 +36,15 @@ class SessionMonitor: ObservableObject {
                     await SessionStore.shared.process(
                         .pruneTimedOutExternalContinuations(now: Date())
                     )
+                }
+            }
+            .store(in: &cancellables)
+
+        Timer.publish(every: 2, on: .main, in: .common)
+            .autoconnect()
+            .sink { _ in
+                Task {
+                    await SessionStore.shared.checkProcessLiveness()
                 }
             }
             .store(in: &cancellables)
@@ -135,6 +145,11 @@ class SessionMonitor: ObservableObject {
 
         Task {
             await CodexAppServerMonitor.shared.start()
+        }
+
+        // Discover sessions that were already running before Ping Island started
+        Task {
+            await SessionStore.shared.discoverExistingSessions()
         }
     }
 
@@ -305,12 +320,31 @@ class SessionMonitor: ObservableObject {
     private func updateFromSessions(_ sessions: [SessionState]) {
         allSessions = sessions
         refreshVisibleSessions()
+        scheduleEndedSessionArchiveRefreshIfNeeded(sessions)
     }
 
     private func refreshVisibleSessions() {
         let visibleSessions = filteredVisibleSessions(from: allSessions)
         instances = visibleSessions
         pendingInstances = visibleSessions.filter { $0.needsAttention }
+    }
+
+    /// When sessions transition to .ended, schedule a delayed refresh so they
+    /// pass the auto-archive threshold and get removed from the UI.
+    /// This works for ALL session-end paths (hook events, process liveness, etc.).
+    private func scheduleEndedSessionArchiveRefreshIfNeeded(_ sessions: [SessionState]) {
+        let hasUnarchivedEndedSessions = sessions.contains {
+            $0.phase == .ended && !$0.shouldAutoArchiveFromPrimaryUI
+        }
+
+        if hasUnarchivedEndedSessions && pendingEndedArchiveRefresh == nil {
+            let workItem = DispatchWorkItem { [weak self] in
+                self?.refreshVisibleSessions()
+                self?.pendingEndedArchiveRefresh = nil
+            }
+            pendingEndedArchiveRefresh = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + 3, execute: workItem)
+        }
     }
 
     private func filteredVisibleSessions(from sessions: [SessionState]) -> [SessionState] {

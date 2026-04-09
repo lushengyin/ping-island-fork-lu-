@@ -1162,6 +1162,150 @@ actor SessionStore {
         }
     }
 
+    // MARK: - Session Discovery
+
+    /// Discover sessions that were already running before Ping Island started.
+    /// Finds running CLI processes, matches them to session JSONL files, and creates SessionState entries.
+    func discoverExistingSessions() async {
+        let tree = ProcessTreeBuilder.shared.buildTree()
+        let fm = FileManager.default
+
+        // Find running Claude Code processes by command name
+        let claudeProcesses = tree.values.filter { info in
+            let cmd = info.command.lowercased()
+            return cmd.contains("claude") || cmd.hasSuffix("/claude")
+        }
+
+        guard !claudeProcesses.isEmpty else { return }
+
+        var addedCount = 0
+        var usedSessionIds = Set<String>()
+
+        for process in claudeProcesses {
+            guard let cwd = ProcessTreeBuilder.shared.getWorkingDirectory(forPid: process.pid) else {
+                continue
+            }
+
+            let projectDir = cwd
+                .replacingOccurrences(of: "/", with: "-")
+                .replacingOccurrences(of: ".", with: "-")
+            let sessionsDir = NSHomeDirectory() + "/.claude/projects/" + projectDir
+
+            guard let files = try? fm.contentsOfDirectory(atPath: sessionsDir) else { continue }
+
+            // Find recently modified JSONL files (within last 60 min)
+            let recentFiles = files.filter { file in
+                guard file.hasSuffix(".jsonl") else { return false }
+                let filePath = sessionsDir + "/" + file
+                guard let attrs = try? fm.attributesOfItem(atPath: filePath),
+                      let modDate = attrs[.modificationDate] as? Date else { return false }
+                return Date().timeIntervalSince(modDate) < 60 * 60
+            }.sorted { file1, file2 in
+                let date1 = (try? fm.attributesOfItem(atPath: sessionsDir + "/" + file1)[.modificationDate] as? Date) ?? .distantPast
+                let date2 = (try? fm.attributesOfItem(atPath: sessionsDir + "/" + file2)[.modificationDate] as? Date) ?? .distantPast
+                return date1 > date2
+            }
+
+            // Match the most recently modified, unused JSONL file to this process
+            for file in recentFiles {
+                let sessionId = String(file.dropLast(5))
+                guard !usedSessionIds.contains(sessionId) else { continue }
+                guard sessions[sessionId] == nil else { continue }
+
+                usedSessionIds.insert(sessionId)
+
+                let jsonlPath = sessionsDir + "/" + file
+                let conversationInfo = await ConversationParser.shared.parse(
+                    sessionId: sessionId,
+                    cwd: cwd,
+                    explicitFilePath: jsonlPath
+                )
+
+                let isInTmux = ProcessTreeBuilder.shared.isInTmux(pid: process.pid, tree: tree)
+
+                var session = SessionState(
+                    sessionId: sessionId,
+                    cwd: cwd,
+                    provider: .claude,
+                    ingress: .hookBridge,
+                    pid: process.pid,
+                    tty: process.tty,
+                    isInTmux: isInTmux,
+                    phase: .idle
+                )
+                session.conversationInfo = conversationInfo
+
+                sessions[sessionId] = session
+                addedCount += 1
+
+                Self.logger.notice(
+                    "Discovered existing session=\(sessionId.prefix(8), privacy: .public) pid=\(process.pid) cwd=\(cwd, privacy: .public)"
+                )
+
+                break  // One session per process
+            }
+        }
+
+        if addedCount > 0 {
+            publishState()
+        }
+    }
+
+    // MARK: - Process Liveness Check
+
+    /// Check whether CLI processes backing active sessions are still running.
+    /// Uses two detection methods:
+    /// 1. TTY orphan check: if no process on the session's TTY exists in the process tree,
+    ///    the terminal was closed and the session should end (fast detection).
+    /// 2. PID check: if the process no longer exists, the session should end (fallback).
+    /// Returns the number of sessions that were newly marked as ended.
+    func checkProcessLiveness() async -> Int {
+        let tree = ProcessTreeBuilder.shared.buildTree()
+        var endedSessionIds: [String] = []
+
+        for (sessionId, session) in sessions {
+            guard session.phase != .ended else { continue }
+            guard let pid = session.pid else { continue }
+            guard !session.isInTmux else { continue }
+
+            // Check 1: TTY orphan — no process in the tree uses this TTY anymore.
+            // This detects terminal closure faster than waiting for the CLI process to exit,
+            // because the TTY is removed from the process table once the terminal closes
+            // its master side, even while the CLI is still shutting down.
+            if let tty = session.tty, !tty.isEmpty {
+                let normalizedTTY = tty.replacingOccurrences(of: "/dev/", with: "")
+                let ttyUsers = tree.values.filter { $0.tty == normalizedTTY }
+                if ttyUsers.isEmpty {
+                    endedSessionIds.append(sessionId)
+                    continue
+                }
+            }
+
+            // Check 2: Process no longer exists (fallback)
+            if kill(pid_t(pid), 0) != 0 && errno == ESRCH {
+                endedSessionIds.append(sessionId)
+            }
+        }
+
+        guard !endedSessionIds.isEmpty else { return 0 }
+
+        for sessionId in endedSessionIds {
+            guard var session = sessions[sessionId] else { continue }
+
+            Self.logger.notice(
+                "Process liveness check: marking session ended session=\(sessionId.prefix(8), privacy: .public) pid=\(session.pid.map(String.init) ?? "nil", privacy: .public)"
+            )
+            markSessionEnded(&session)
+            sessions[sessionId] = session
+            cancelPendingCodexPlaceholderPrune(sessionId: sessionId)
+            cancelPendingQoderConversationPoll(sessionId: sessionId)
+            scheduleFinalSessionSync(for: session)
+        }
+
+        publishState()
+        return endedSessionIds.count
+    }
+
     // MARK: - History Loading
 
     private func loadHistoryFromFile(sessionId: String, cwd: String) async {
