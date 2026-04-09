@@ -46,6 +46,13 @@
 <p align="center">
   <sub>Claude Code · Codex · Gemini CLI · OpenCode · Cursor · Qoder · CodeBuddy · GitHub Copilot</sub>
 </p>
+## Fork Improvements
+
+This project is a fork of [erha19/ping-island](https://github.com/erha19/ping-island) with the following improvements:
+
+- **Optimized Dynamic Island session cleanup** — The original v0.0.1 retains all historical session windows, which looks cluttered. After the improvement, when a Claude Code terminal session closes, the Dynamic Island removes the corresponding session within 3 seconds, keeping the interface clean.
+
+
 
 ## What is Ping Island?
 
