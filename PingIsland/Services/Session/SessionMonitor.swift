@@ -318,6 +318,7 @@ class SessionMonitor: ObservableObject {
         return primaryVisibleSessions.filter { candidate in
             !primaryVisibleSessions.contains { other in
                 candidate.shouldHideAsDuplicateCodexPlaceholder(comparedTo: other)
+                    || candidate.shouldHideAsDuplicateOpenCodeChildSession(comparedTo: other)
             }
         }
     }
