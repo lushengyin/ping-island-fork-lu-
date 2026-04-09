@@ -248,11 +248,7 @@ Implementation details worth knowing:
 - Best experience on MacBooks with a notch, but external displays are supported too
 - Install whichever CLI or desktop clients you want Ping Island to monitor
 
-## Fork 改进说明
 
-此项目基于开源仓库 [erha19/ping-island](https://github.com/erha19/ping-island) 进行改进和二开，目前改进功能点：
-
-- **优化灵动岛清除历史会话功能** — 原 0.0.1 版本会保留所有历史会话窗口，看起来比较冗余。改进后，当终端 Claude Code 会话关闭后，灵动岛会在 3 秒内清除对应会话，保持界面整洁。
 
 ## Acknowledgments
 
