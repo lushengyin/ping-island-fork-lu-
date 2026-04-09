@@ -146,7 +146,16 @@ actor SessionLauncher {
             return false
         }
 
-        let terminalSessionIdentifier = clientInfo.terminalSessionIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trackedTerminalBundleIdentifier = clientInfo.terminalBundleIdentifier
+            .map(TerminalAppRegistry.normalizedHostBundleIdentifier(for:))
+        let terminalSessionIdentifier: String?
+        if trackedTerminalBundleIdentifier == "com.mitchellh.ghostty" {
+            terminalSessionIdentifier = TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(
+                clientInfo.terminalSessionIdentifier
+            )
+        } else {
+            terminalSessionIdentifier = clientInfo.terminalSessionIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
         let iTermSessionIdentifier = clientInfo.iTermSessionIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines)
         guard terminalSessionIdentifier?.isEmpty == false || iTermSessionIdentifier?.isEmpty == false else {
             await FocusDiagnosticsStore.shared.record(

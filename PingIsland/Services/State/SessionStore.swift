@@ -204,6 +204,17 @@ actor SessionStore {
             clientInfo: session.clientInfo,
             sessionId: sessionId
         )
+        if let enrichedGhosttyClientInfo = await enrichedGhosttyClientInfoIfNeeded(
+            current: session.clientInfo,
+            event: event,
+            workspacePath: session.cwd
+        ) {
+            session.clientInfo = normalizedClientInfo(
+                session.clientInfo.merged(with: enrichedGhosttyClientInfo),
+                provider: event.provider,
+                sessionId: sessionId
+            )
+        }
         session.lastActivity = Date()
         if let hookMessage = Self.normalizedHookMessage(event.message) {
             session.latestHookMessage = hookMessage
@@ -229,12 +240,21 @@ actor SessionStore {
             ? .waitingForInput
             : event.determinePhase()
         let intervention = event.intervention
-        let shouldPreservePendingApproval = shouldPreservePendingApproval(for: event, session: session)
+        let preservedPendingApproval = preservedPendingApprovalContext(
+            for: event,
+            session: session,
+            newPhase: newPhase
+        )
+        let shouldSuppressPendingApprovalCompletion = shouldSuppressPendingApprovalCompletion(
+            for: event,
+            session: session
+        )
 
-        if shouldPreservePendingApproval {
+        if let preservedPendingApproval {
             Self.logger.debug(
                 "Preserving waitingForApproval for \(sessionId.prefix(8), privacy: .public) on \(event.event, privacy: .public)"
             )
+            session.phase = .waitingForApproval(preservedPendingApproval)
         } else if session.phase.canTransition(to: newPhase) {
             session.phase = newPhase
         } else {
@@ -263,7 +283,11 @@ actor SessionStore {
             updateToolStatus(in: &session, toolId: toolUseId, status: .waitingForApproval)
         }
 
-        processToolTracking(event: event, session: &session, preservingPendingApproval: shouldPreservePendingApproval)
+        processToolTracking(
+            event: event,
+            session: &session,
+            preservingPendingApproval: shouldSuppressPendingApprovalCompletion
+        )
         processSubagentTracking(event: event, session: &session)
 
         if event.event == "Stop" {
@@ -401,7 +425,7 @@ actor SessionStore {
         }
     }
 
-    private func shouldPreservePendingApproval(for event: HookEvent, session: SessionState) -> Bool {
+    private func shouldSuppressPendingApprovalCompletion(for event: HookEvent, session: SessionState) -> Bool {
         guard event.event == "PostToolUse",
               let activePermission = session.activePermission,
               let toolUseId = event.toolUseId
@@ -410,6 +434,70 @@ actor SessionStore {
         }
 
         return activePermission.toolUseId == toolUseId
+    }
+
+    private func preservedPendingApprovalContext(
+        for event: HookEvent,
+        session: SessionState,
+        newPhase: SessionPhase
+    ) -> PermissionContext? {
+        guard !newPhase.isWaitingForApproval,
+              event.event != "PermissionRequest",
+              event.event != "SessionEnd",
+              event.event != "Stop",
+              event.status != "ended",
+              !event.isAskUserQuestionRequest,
+              case .none = event.intervention else {
+            return nil
+        }
+
+        if let activePermission = session.activePermission {
+            return activePermission
+        }
+
+        return pendingApprovalContext(in: session, preferring: event.toolUseId)
+    }
+
+    private func pendingApprovalContext(
+        in session: SessionState,
+        preferring toolUseId: String?
+    ) -> PermissionContext? {
+        if let toolUseId,
+           let preferredMatch = pendingApprovalItem(in: session, matching: toolUseId) {
+            return preferredMatch
+        }
+
+        return pendingApprovalItem(in: session)
+    }
+
+    private func pendingApprovalItem(
+        in session: SessionState,
+        matching toolUseId: String? = nil
+    ) -> PermissionContext? {
+        let pendingTool = session.chatItems
+            .reversed()
+            .first { item in
+                guard case .toolCall(let tool) = item.type,
+                      tool.status == .waitingForApproval else {
+                    return false
+                }
+                guard let toolUseId else {
+                    return true
+                }
+                return item.id == toolUseId
+            }
+
+        guard let pendingTool,
+              case .toolCall(let tool) = pendingTool.type else {
+            return nil
+        }
+
+        return PermissionContext(
+            toolUseId: pendingTool.id,
+            toolName: tool.name,
+            toolInput: nil,
+            receivedAt: pendingTool.timestamp
+        )
     }
 
     private func processSubagentTracking(event: HookEvent, session: inout SessionState) {
@@ -2475,6 +2563,41 @@ actor SessionStore {
         }
 
         return runtimeInfo
+    }
+
+    private func enrichedGhosttyClientInfoIfNeeded(
+        current: SessionClientInfo,
+        event: HookEvent,
+        workspacePath: String
+    ) async -> SessionClientInfo? {
+        guard current.terminalBundleIdentifier == "com.mitchellh.ghostty",
+              TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(current.terminalSessionIdentifier) == nil,
+              shouldCaptureFrontmostGhosttyTerminalIdentifier(for: event) else {
+            return nil
+        }
+
+        guard let snapshot = await TerminalSessionFocuser.shared.frontmostGhosttyTerminalSnapshot(),
+              TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(snapshot.terminalSessionIdentifier) != nil,
+              TerminalSessionFocuser.ghosttyWorkingDirectoryMatches(
+                  snapshotWorkingDirectory: snapshot.workingDirectory,
+                  workspacePath: workspacePath
+              ) else {
+            return nil
+        }
+
+        return SessionClientInfo(
+            kind: current.kind,
+            terminalSessionIdentifier: snapshot.terminalSessionIdentifier
+        )
+    }
+
+    private func shouldCaptureFrontmostGhosttyTerminalIdentifier(for event: HookEvent) -> Bool {
+        switch event.event {
+        case "SessionStart", "UserPromptSubmit":
+            return true
+        default:
+            return false
+        }
     }
 
     private func normalizedClientInfo(

@@ -4,10 +4,13 @@ import Darwin
 
 @main
 struct IslandBridgeMain {
+    private static let stdinInitialPollTimeoutMs = 100
+    private static let stdinFollowUpPollTimeoutMs = 10
+
     static func main() async {
         do {
             let source = try parseSource(arguments: CommandLine.arguments)
-            let stdinData = FileHandle.standardInput.readDataToEndOfFile()
+            let stdinData = readStandardInputPayload()
             var environment = ProcessInfo.processInfo.environment
             if environment["TTY"]?.isEmpty != false, let tty = detectTTY(parentPID: getppid()) {
                 environment["TTY"] = tty
@@ -92,6 +95,96 @@ struct IslandBridgeMain {
         return String(cString: name)
     }
 
+    private static func readStandardInputPayload() -> Data {
+        let stdinFD = FileHandle.standardInput.fileDescriptor
+        guard isatty(stdinFD) == 0 else {
+            return Data()
+        }
+
+        var fileStatus = stat()
+        if fstat(stdinFD, &fileStatus) == 0, (fileStatus.st_mode & S_IFMT) == S_IFREG {
+            return FileHandle.standardInput.readDataToEndOfFile()
+        }
+
+        let originalFlags = fcntl(stdinFD, F_GETFL)
+        if originalFlags >= 0 {
+            _ = fcntl(stdinFD, F_SETFL, originalFlags | O_NONBLOCK)
+        }
+        defer {
+            if originalFlags >= 0 {
+                _ = fcntl(stdinFD, F_SETFL, originalFlags)
+            }
+        }
+
+        var data = Data()
+        var sawFirstChunk = false
+        var completionState = JSONStreamCompletionState()
+
+        while true {
+            if completionState.isCompleteTopLevelObject,
+               BridgeCodec.readJSONObject(from: data) != nil {
+                return data
+            }
+
+            var descriptor = pollfd(fd: stdinFD, events: Int16(POLLIN | POLLHUP), revents: 0)
+            let timeout = Int32(sawFirstChunk ? stdinFollowUpPollTimeoutMs : stdinInitialPollTimeoutMs)
+            let pollResult = poll(&descriptor, 1, timeout)
+
+            if pollResult == 0 {
+                return data
+            }
+
+            if pollResult < 0 {
+                if errno == EINTR {
+                    continue
+                }
+                return data
+            }
+
+            switch drainAvailableStandardInput(from: stdinFD, into: &data) {
+            case .readBytes:
+                sawFirstChunk = true
+                completionState.consume(data)
+            case .reachedEOF:
+                return data
+            case .wouldBlock:
+                if descriptor.revents & Int16(POLLHUP) != 0 {
+                    return data
+                }
+            case .failed:
+                return data
+            }
+        }
+    }
+
+    private static func drainAvailableStandardInput(from fd: Int32, into data: inout Data) -> StdinDrainResult {
+        var didReadAnyBytes = false
+        var buffer = [UInt8](repeating: 0, count: 4096)
+
+        while true {
+            let byteCount = read(fd, &buffer, buffer.count)
+            if byteCount > 0 {
+                didReadAnyBytes = true
+                data.append(buffer, count: byteCount)
+                continue
+            }
+
+            if byteCount == 0 {
+                return .reachedEOF
+            }
+
+            if errno == EINTR {
+                continue
+            }
+
+            if errno == EAGAIN || errno == EWOULDBLOCK {
+                return didReadAnyBytes ? .readBytes : .wouldBlock
+            }
+
+            return .failed
+        }
+    }
+
     private static func sendEnvelopeIfPossible(
         envelope: BridgeEnvelope,
         socketPath: String
@@ -101,6 +194,80 @@ struct IslandBridgeMain {
         } catch BridgeError.connectionFailed where !envelope.expectsResponse {
             // State-only hooks should not fail the calling CLI when Island is unavailable.
             return nil
+        }
+    }
+}
+
+private enum StdinDrainResult {
+    case readBytes
+    case reachedEOF
+    case wouldBlock
+    case failed
+}
+
+private struct JSONStreamCompletionState {
+    private(set) var isCompleteTopLevelObject = false
+    private var consumedByteCount = 0
+    private var objectDepth = 0
+    private var sawObjectStart = false
+    private var isInsideString = false
+    private var isEscaping = false
+
+    mutating func consume(_ data: Data) {
+        guard isCompleteTopLevelObject == false, consumedByteCount < data.count else {
+            consumedByteCount = max(consumedByteCount, data.count)
+            return
+        }
+
+        for byte in data[consumedByteCount...] {
+            consumedByteCount += 1
+
+            if isInsideString {
+                if isEscaping {
+                    isEscaping = false
+                    continue
+                }
+
+                if byte == 0x5C {
+                    isEscaping = true
+                } else if byte == 0x22 {
+                    isInsideString = false
+                }
+                continue
+            }
+
+            if Self.isWhitespace(byte) {
+                continue
+            }
+
+            if byte == 0x22 {
+                isInsideString = true
+                continue
+            }
+
+            if byte == 0x7B {
+                sawObjectStart = true
+                objectDepth += 1
+                continue
+            }
+
+            if byte == 0x7D, sawObjectStart {
+                objectDepth -= 1
+                if objectDepth == 0 {
+                    isCompleteTopLevelObject = true
+                    return
+                }
+                continue
+            }
+        }
+    }
+
+    private static func isWhitespace(_ byte: UInt8) -> Bool {
+        switch byte {
+        case 0x09, 0x0A, 0x0D, 0x20:
+            return true
+        default:
+            return false
         }
     }
 }

@@ -1,0 +1,77 @@
+import XCTest
+@testable import Ping_Island
+
+final class TerminalSessionFocuserTests: XCTestCase {
+    func testGhosttySelectionScriptOnlyUsesUnambiguousWorkspaceMatches() {
+        let lines = TerminalSessionFocuser.ghosttySelectionScriptLines(
+            terminalSessionIdentifier: nil,
+            workspacePath: "/tmp/demo"
+        )
+        let script = lines.joined(separator: "\n")
+
+        XCTAssertTrue(script.contains("if (count of exactMatches) is 1 then"))
+        XCTAssertTrue(script.contains("if (count of pathMatches) is 1 then"))
+        XCTAssertTrue(script.contains("if (count of nameMatches) is 1 then"))
+    }
+
+    func testGhosttyFrontmostTerminalSnapshotScriptTargetsFocusedTerminal() {
+        let lines = TerminalSessionFocuser.ghosttyFrontmostTerminalSnapshotScriptLines()
+        let script = lines.joined(separator: "\n")
+
+        XCTAssertTrue(script.contains("set targetWindow to front window"))
+        XCTAssertTrue(script.contains("set targetTab to selected tab of targetWindow"))
+        XCTAssertTrue(script.contains("set targetTerminal to focused terminal of targetTab"))
+        XCTAssertTrue(script.contains("return targetTerminalID & linefeed & targetWorkingDirectory & linefeed & targetTerminalName"))
+    }
+
+    func testParseGhosttyTerminalSnapshotReadsIdentifierWorkingDirectoryAndTitle() {
+        let snapshot = TerminalSessionFocuser.parseGhosttyTerminalSnapshot(
+            "ABC-123\n/Users/example/project\nclaude session"
+        )
+
+        XCTAssertEqual(
+            snapshot,
+            TerminalSessionFocuser.GhosttyTerminalSnapshot(
+                terminalSessionIdentifier: "ABC-123",
+                workingDirectory: "/Users/example/project",
+                title: "claude session"
+            )
+        )
+    }
+
+    func testGhosttyWorkingDirectoryMatchesStandardizedPathsAndSubdirectories() {
+        XCTAssertTrue(
+            TerminalSessionFocuser.ghosttyWorkingDirectoryMatches(
+                snapshotWorkingDirectory: "/Users/example/project/subdir",
+                workspacePath: "/Users/example/project"
+            )
+        )
+        XCTAssertTrue(
+            TerminalSessionFocuser.ghosttyWorkingDirectoryMatches(
+                snapshotWorkingDirectory: "/Users/example/project/../project",
+                workspacePath: "/Users/example/project"
+            )
+        )
+        XCTAssertFalse(
+            TerminalSessionFocuser.ghosttyWorkingDirectoryMatches(
+                snapshotWorkingDirectory: "/Users/example/other",
+                workspacePath: "/Users/example/project"
+            )
+        )
+    }
+
+    func testNormalizedGhosttyTerminalIdentifierAcceptsUUIDAndUppercasesIt() {
+        XCTAssertEqual(
+            TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier(
+                "65a2028f-a93c-48e0-b46a-3f4c20c94b81"
+            ),
+            "65A2028F-A93C-48E0-B46A-3F4C20C94B81"
+        )
+    }
+
+    func testNormalizedGhosttyTerminalIdentifierRejectsGenericTermSessionID() {
+        XCTAssertNil(
+            TerminalSessionFocuser.normalizedGhosttyTerminalIdentifier("ghostty-terminal-1")
+        )
+    }
+}

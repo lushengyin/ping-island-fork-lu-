@@ -131,7 +131,8 @@ final class RunningProcess {
         executableURL: URL,
         arguments: [String],
         environment: [String: String] = [:],
-        stdin: String = ""
+        stdin: String = "",
+        closeStdinOnLaunch: Bool = true
     ) throws {
         process = Process()
         process.executableURL = executableURL
@@ -155,6 +156,20 @@ final class RunningProcess {
         if !stdin.isEmpty {
             stdinPipe.fileHandleForWriting.write(Data(stdin.utf8))
         }
+        if closeStdinOnLaunch {
+            try? stdinPipe.fileHandleForWriting.close()
+        }
+    }
+
+    var isRunning: Bool {
+        process.isRunning
+    }
+
+    func writeToStdin(_ string: String) {
+        stdinPipe.fileHandleForWriting.write(Data(string.utf8))
+    }
+
+    func closeStdin() {
         try? stdinPipe.fileHandleForWriting.close()
     }
 

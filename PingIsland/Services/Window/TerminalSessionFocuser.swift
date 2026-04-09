@@ -15,6 +15,12 @@ actor TerminalSessionFocuser {
     private let logger = Logger(subsystem: "com.wudanwu.pingisland", category: "TerminalFocus")
     private let iTermSelectionRetryDelayNanoseconds: UInt64 = 250_000_000
 
+    struct GhosttyTerminalSnapshot: Equatable {
+        let terminalSessionIdentifier: String
+        let workingDirectory: String?
+        let title: String?
+    }
+
     private init() {}
 
     func focusSession(
@@ -262,6 +268,13 @@ actor TerminalSessionFocuser {
     }
 
     private func runAppleScript(lines: [String]) async -> Bool {
+        guard let output = await runAppleScriptWithOutput(lines: lines) else {
+            return false
+        }
+        return output == "ok"
+    }
+
+    private func runAppleScriptWithOutput(lines: [String]) async -> String? {
         let preview = lines.joined(separator: " | ")
         logger.debug("Running AppleScript: \(preview, privacy: .public)")
         await FocusDiagnosticsStore.shared.record("TerminalFocus applescript-run \(preview)")
@@ -274,7 +287,7 @@ actor TerminalSessionFocuser {
                 Task {
                     await FocusDiagnosticsStore.shared.record("TerminalFocus applescript-create-failed")
                 }
-                return false
+                return nil
             }
 
             let result = script.executeAndReturnError(&errorInfo)
@@ -285,7 +298,7 @@ actor TerminalSessionFocuser {
                         "TerminalFocus applescript-error \(String(describing: errorInfo))"
                     )
                 }
-                return false
+                return nil
             }
 
             let output = result.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
@@ -293,8 +306,24 @@ actor TerminalSessionFocuser {
             Task {
                 await FocusDiagnosticsStore.shared.record("TerminalFocus applescript-result \(output)")
             }
-            return output == "ok"
+            return output
         }
+    }
+
+    func frontmostGhosttyTerminalSnapshot() async -> GhosttyTerminalSnapshot? {
+        let isGhosttyFrontmost = await MainActor.run {
+            NSWorkspace.shared.frontmostApplication?.bundleIdentifier == "com.mitchellh.ghostty"
+        }
+        guard isGhosttyFrontmost else {
+            return nil
+        }
+
+        guard let output = await runAppleScriptWithOutput(lines: Self.ghosttyFrontmostTerminalSnapshotScriptLines()),
+              output != "not-found" else {
+            return nil
+        }
+
+        return Self.parseGhosttyTerminalSnapshot(output)
     }
 
     private func terminalScriptLines(for tty: String) -> [String] {
@@ -364,7 +393,7 @@ actor TerminalSessionFocuser {
         workspacePath: String?
     ) async -> Bool {
         let result = await runAppleScript(lines: Self.ghosttySelectionScriptLines(
-            terminalSessionIdentifier: terminalSessionIdentifier,
+            terminalSessionIdentifier: Self.normalizedGhosttyTerminalIdentifier(terminalSessionIdentifier),
             workspacePath: workspacePath
         ))
         await FocusDiagnosticsStore.shared.record(
@@ -493,8 +522,7 @@ actor TerminalSessionFocuser {
             "tell application id \"com.mitchellh.ghostty\""
         ]
 
-        if let terminalSessionIdentifier = terminalSessionIdentifier?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !terminalSessionIdentifier.isEmpty {
+        if let terminalSessionIdentifier = normalizedGhosttyTerminalIdentifier(terminalSessionIdentifier) {
             lines.append(contentsOf: [
                 "set targetTerminalID to \(appleScriptStringLiteral(terminalSessionIdentifier))",
                 "try",
@@ -512,18 +540,18 @@ actor TerminalSessionFocuser {
                 "set targetPath to \(appleScriptStringLiteral(workspacePath))",
                 "set targetName to \(appleScriptStringLiteral(projectName))",
                 "set exactMatches to every terminal whose working directory is targetPath",
-                "if (count of exactMatches) > 0 then",
+                "if (count of exactMatches) is 1 then",
                 "focus (item 1 of exactMatches)",
                 "return \"ok\"",
                 "end if",
                 "set pathMatches to every terminal whose working directory contains targetPath",
-                "if (count of pathMatches) > 0 then",
+                "if (count of pathMatches) is 1 then",
                 "focus (item 1 of pathMatches)",
                 "return \"ok\"",
                 "end if",
                 "if targetName is not \"\" then",
                 "set nameMatches to every terminal whose name contains targetName",
-                "if (count of nameMatches) > 0 then",
+                "if (count of nameMatches) is 1 then",
                 "focus (item 1 of nameMatches)",
                 "return \"ok\"",
                 "end if",
@@ -538,6 +566,93 @@ actor TerminalSessionFocuser {
         ])
 
         return lines
+    }
+
+    static func ghosttyFrontmostTerminalSnapshotScriptLines() -> [String] {
+        [
+            "tell application id \"com.mitchellh.ghostty\"",
+            "try",
+            "set targetWindow to front window",
+            "set targetTab to selected tab of targetWindow",
+            "set targetTerminal to focused terminal of targetTab",
+            "set targetTerminalID to (id of targetTerminal as text)",
+            "set targetWorkingDirectory to \"\"",
+            "try",
+            "set targetWorkingDirectory to (working directory of targetTerminal as text)",
+            "end try",
+            "set targetTerminalName to \"\"",
+            "try",
+            "set targetTerminalName to (name of targetTerminal as text)",
+            "end try",
+            "return targetTerminalID & linefeed & targetWorkingDirectory & linefeed & targetTerminalName",
+            "on error",
+            "return \"not-found\"",
+            "end try",
+            "end tell"
+        ]
+    }
+
+    static func parseGhosttyTerminalSnapshot(_ output: String) -> GhosttyTerminalSnapshot? {
+        let lines = output.components(separatedBy: .newlines)
+        guard let terminalSessionIdentifier = sanitizedNonEmpty(lines.first) else {
+            return nil
+        }
+
+        let workingDirectory = lines.count > 1 ? sanitizedNonEmpty(lines[1]) : nil
+        let title = lines.count > 2 ? sanitizedNonEmpty(lines[2]) : nil
+        return GhosttyTerminalSnapshot(
+            terminalSessionIdentifier: terminalSessionIdentifier,
+            workingDirectory: workingDirectory,
+            title: title
+        )
+    }
+
+    static func normalizedGhosttyTerminalIdentifier(_ terminalSessionIdentifier: String?) -> String? {
+        guard let trimmedIdentifier = terminalSessionIdentifier?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+            !trimmedIdentifier.isEmpty else {
+            return nil
+        }
+
+        guard UUID(uuidString: trimmedIdentifier.uppercased()) != nil else {
+            return nil
+        }
+
+        return trimmedIdentifier.uppercased()
+    }
+
+    static func ghosttyWorkingDirectoryMatches(
+        snapshotWorkingDirectory: String?,
+        workspacePath: String?
+    ) -> Bool {
+        guard let normalizedSnapshot = normalizedComparablePath(snapshotWorkingDirectory),
+              let normalizedWorkspace = normalizedComparablePath(workspacePath) else {
+            return false
+        }
+
+        if normalizedSnapshot == normalizedWorkspace {
+            return true
+        }
+
+        return normalizedSnapshot.hasPrefix(normalizedWorkspace + "/")
+            || normalizedWorkspace.hasPrefix(normalizedSnapshot + "/")
+    }
+
+    private static func normalizedComparablePath(_ value: String?) -> String? {
+        guard let trimmed = sanitizedNonEmpty(value) else {
+            return nil
+        }
+
+        let standardized = URL(fileURLWithPath: trimmed).resolvingSymlinksInPath().standardizedFileURL.path
+        return NSString(string: standardized).standardizingPath.lowercased()
+    }
+
+    private static func sanitizedNonEmpty(_ value: String?) -> String? {
+        guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+        return trimmed
     }
 
     private func normalizedITermSessionIdentifier(_ sessionIdentifier: String?) -> String? {
