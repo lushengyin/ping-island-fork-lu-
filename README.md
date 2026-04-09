@@ -46,6 +46,7 @@
 <p align="center">
   <sub>Claude Code · Codex · Gemini CLI · OpenCode · Cursor · Qoder · CodeBuddy · GitHub Copilot</sub>
 </p>
+
 ## Fork Improvements
 
 This project is a fork of [erha19/ping-island](https://github.com/erha19/ping-island) with the following improvements:
